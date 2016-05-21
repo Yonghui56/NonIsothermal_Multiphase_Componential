@@ -381,11 +381,15 @@ void FunctionCMP_NonIsoGlobalNCPForm<T1, T2>::calc_nodal_eos_sys(double dt = 0.0
 		}
 		*/
 		
-		_vec_Res(3 * num_nodes + node_id) =  std::min(1 - input(2), 1 - (input(0)*(1 - input(1)) / PG_w_np));//min{1-SG, 1-(PG*(1-X_G^a)/P_sat)}=0
+		_vec_Res(3 * num_nodes + node_id) =  -std::min(1 - input(2), 1 - (input(0)*(1 - input(1)) / PG_w_np));//min{1-SG, 1-(PG*(1-X_G^a)/P_sat)}=0
 		if (1 - input(2) <= 1 - (input(0)*(1 - input(1)) / PG_w_np)){//then rho_L^h=C_h*PG
 			//if program comes here indicates coming to one phase zone with only gas
 			//Calc each entry of the mass matrix
+			_mat_Jacob.coeffRef(node_id + 3 * num_nodes, 4 * node_id) = 0.0;//dPG
+			_mat_Jacob.coeffRef(node_id + 3 * num_nodes, 4 * node_id + 1) = 0.0;//dX_G^a
 			_mat_Jacob.coeffRef(3 * num_nodes + node_id, 4 * node_id + 2) = -1.0;
+			_mat_Jacob.coeffRef(node_id + 3 * num_nodes, 4 * node_id + 3) = 0.0;
+			
 		}
 		else {//then 
 			//if program comes here indicates coming to two phase zone 

@@ -166,7 +166,7 @@ void TemplateTransientResidualFEMFunction_NonIso_Global_NCPForm<T_DIS_SYS, T_FUN
 	_vec_Res = MathLib::LocalVector::Zero(4 * nnodes, 1);//here four stands for 4 governing eq(4 primary variables)
 	_vec_Res = _function_data->get_vec_Res();
 	for (size_t node_idx = 0; node_idx < nnodes; node_idx++){
-		residual_global[4 * node_idx + 3] = _vec_Res[3 * nnodes + node_idx]; //-_vec_Res[3 * nnodes + node_idx];3 * nnodes +
+		residual_global[4 * node_idx + 3] = -_vec_Res[3 * nnodes + node_idx]; //-_vec_Res[3 * nnodes + node_idx];3 * nnodes +
 		//4 stands for four primary variable 3 stands for two mass conservations and one energy conservations before complementary condiiton 
 	}
 }
