@@ -291,7 +291,6 @@ protected:
 			EnthalpyH_G_gp(0) = C_pg*(T_gp(0, 0) - T0)*massfractionXair_gp(0) + (C_pl*(T_gp(0, 0) - T0) + delta_h_vap)*(1 - massfractionXair_gp(0));
 			EnthalpyH_L_gp(0) = C_pl*(T_gp(0, 0) - T0);
 			//+++++++++++++++++++++++++Calculate the derivatives +++++++++++++++++++++++++++++++++++
-			rho_L_h_gp(0) = 0.0;//
 			dPGw_dP_gp(0) = 0.0;
 			dPGw_dT_gp(0) = _EOS->Deriv_dPGw_dT(PC_gp(0), T_gp(0, 0));
 
@@ -299,8 +298,8 @@ protected:
 			dPGh_dT_gp(0) = -dPGw_dT_gp(0);
 			
 
-			drho_L_h_dP_gp(0) = 0.0;// Hen*M_G*dPGh_dP_gp(0, 0);
-			drho_L_h_dT_gp(0) = 0.0;// Hen*M_G*dPGh_dT_gp(0, 0);
+			drho_L_h_dP_gp(0) = Hen*M_G*dPGh_dP_gp(0, 0);
+			drho_L_h_dT_gp(0) = Hen*M_G*dPGh_dT_gp(0, 0);
 			
 			drho_G_hdP_gp(0) = dPGh_dP_gp(0)*C_v;
 			drho_G_h_dT_gp(0) = dPGh_dT_gp(0)*C_v - P_Gh_gp(0)*C_v / T_gp(0, 0);
@@ -321,7 +320,7 @@ protected:
 			//+++++++++++++++++++++++++End Calculation++++++++++++++++++++++++++++++++++++++++++++++
 			//+++++++++++++++++++++++++Calculate secondary variable for energy balance equations++++
 			RHO_G = rho_G_h_gp(0) + rho_G_w_gp(0);// mass density of gas phase
-			RHO_L = rho_l_std;// +rho_L_h_gp(0);
+			RHO_L = rho_l_std + rho_L_h_gp(0);
 			Lam_pm_gp(0) = _EOS->get_overall_Heat_Capacity(S_gp(0));
 
 			//+++++++++++++++++++++++++End calculate +++++++++++++++++++++++++++++++++++++++++++++++
@@ -335,10 +334,11 @@ protected:
 
 
 			M(2, 0) = poro*S_gp(0)*(drho_G_hdP_gp(0) + drho_G_w_dP_gp(0))*EnthalpyH_G_gp(0)
+				+ poro*(1 - S_gp(0))*drho_L_h_dP_gp(0)*EnthalpyH_L_gp(0)
 				+ poro*RHO_G*EnthalpyH_G_gp(0)*dSgdP_gp(0)
 				- poro*RHO_L*EnthalpyH_L_gp(0)*dSgdP_gp(0)
 				- poro*S_gp(0) - poro*P_gp(0, 0)*dSgdP_gp(0);
-			//+ poro*(1 - S_gp(0))*drho_L_h_dP_gp(0)*EnthalpyH_L_gp(0)
+			//
 
 			M(2, 1) = poro*RHO_G*EnthalpyH_G_gp(0)*dSgdX_gp(0)
 				- poro*RHO_L*EnthalpyH_L_gp(0)*dSgdX_gp(0)
