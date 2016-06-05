@@ -85,6 +85,13 @@ public:
 		for (size_t i = getRangeBegin(); i<getRangeEnd(); i++)
 			(*this)[i] *= v;
 	}
+	/// vector operation: multiplication with a scalar 
+	//template <typename TV>
+	void operator/= (const MyVectorType& v)
+	{
+		for (size_t i = getRangeBegin(); i<getRangeEnd(); i++)
+			(*this)[i] /= v[i];
+	}
     /// set all values in this vector
     virtual MyVectorType& operator= (T v)
     {

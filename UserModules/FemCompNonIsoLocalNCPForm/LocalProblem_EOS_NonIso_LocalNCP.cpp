@@ -58,7 +58,6 @@ void LocalProblem_EOS_NonIso_LocalNCP::solve(ogsChem::LocalVector & Input, ogsCh
 		U_ini = Output.head(3);
 		
 		this->solve_LocalProblem_Newton_LineSearch(m_flag);
-		
 		if (m_flag == 0)
 		{
 			Output.head(3) = U_cur;
@@ -66,10 +65,18 @@ void LocalProblem_EOS_NonIso_LocalNCP::solve(ogsChem::LocalVector & Input, ogsCh
 		}
 		else
 		{
-			WARN("Solving local EOS problem does not converge! \n Using old values as seoncdary varibales. \n"); 
+			//WARN("Solving local EOS problem does not converge! \n Using old values as seoncdary varibales. \n"); 
+			U_ini << 0.0, 0.0, 0.0;
+			_EOS->set_env_condition(Input);
+			this->solve_LocalProblem_Newton_LineSearch(m_flag);
+			if (m_flag == 0)
+			{
+				Output.head(3) = U_cur;
+			}
 			//std::cout << Input << std::endl;
 			//std::cout << U_ini << std::endl;
 			//std::cout << U_cur << std::endl;
+			//exit(1);
 		}
 	}
 	else
@@ -151,8 +158,8 @@ void LocalProblem_EOS_NonIso_LocalNCP::solve_LocalProblem_Newton_LineSearch(std:
 
 	// number of iterations
 	size_t j(0), Iter(0);//j for line search
-	const double neta(0.5);// damping factor for ..
-	const double alpha(0.2971);// damping factor for line search
+	const double neta(1.0);// damping factor for ..
+	const double alpha(0.5);// damping factor for line search
 	double d_norm(0.0), d1_norm(0.0);
 
 	/**
@@ -185,15 +192,13 @@ void LocalProblem_EOS_NonIso_LocalNCP::solve_LocalProblem_Newton_LineSearch(std:
 		if (Iter > Iter_tol)
 		{
 			flag = 1;
-			INFO("residuals : %1.3e", d_norm);
+			//INFO("residuals : %1.3e", d_norm);
 			break; 
 		}
 		if (d_norm < tot)
 		{
 			flag = 0; 
-			//test for MoMaS benchmark 
-			//if (U_cur(0) < 1e-14)
-				//U_cur(0) = 0;
+			
 			break; 
 		}
 

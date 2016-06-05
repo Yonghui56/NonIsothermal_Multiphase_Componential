@@ -49,10 +49,11 @@ namespace MathLib
 			//std::fstream file3("myfile3.txt", std::ios::app);//jacobian
 			std::size_t j(0);
 			std::size_t n_nodes(0);
+
 			clock_t start, finish;
 			//clock_t start1, finish1;
 			double duration(0.0),duration1(0.0);// record the residual assemby time
-			n_nodes = x0.size() / 2;
+			n_nodes = x0.size() / 3;
 			double d_norm(9999999.9), d1_norm(9999999.9);
 			double C_h(1.53e-8);
 			const double damping_factor(1.0);
@@ -85,6 +86,13 @@ namespace MathLib
 					
 					// x increment
 					x_new = x_pre;
+					
+					/*for (int j = 0; j < x0.size() / 3; j++){
+						if (dx[3 * j + 1] / x_pre[3 * j + 1]>0.4)
+							dx[3 * j + 1] = x_pre[3 * j + 1] * 0.4;
+						else if (dx[3 * j + 1] / x_pre[3 * j + 1]<-0.4)
+							dx[3 * j + 1] = -x_pre[3 * j + 1] * 0.4;
+					}*/
 					dx *= damping_factor;
 					x_new -= dx;
 
@@ -95,16 +103,16 @@ namespace MathLib
 					/// based on PressureBasedForm
 
 					
-					/*
-					for (std::size_t n = 0; n < n_nodes; n++){
-						if (x_pre[2 * n + 1] < x_pre[2 * n] * 1.53e-8 && x_new[2 * n + 1] > x_new[2 * n] * 1.53e-8){
-					//double PL = x_pre[2 * n] - x_pre[2 * n + 1];
-					x_pre[2 * n + 1] = 1e-4 + x_pre[2 * n] * 1.53e-8;
-					x_pre[2 * n] = x_pre[2 * n] -  1000;
-					m_flag = 0;
-					}
-					}
-					*/
+					//start from a new point
+					//for (std::size_t n = 0; n < n_nodes; n++){
+					//	if (x_pre[3 * n + 2] < 373.25 &&x_pre[3 * n + 2] > 370.25  &&x_new[3 * n + 2] > 373.25){
+					////double PL = x_pre[2 * n] - x_pre[2 * n + 1];
+					//		x_pre[3 * n + 2] = 373.24;
+					//		x_pre[3 * n] = 101681.27239673040;
+					//		m_flag = 0;
+					//	}
+					//}
+					
 					
 					
 					

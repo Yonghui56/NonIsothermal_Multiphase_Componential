@@ -104,14 +104,22 @@ double TimeStepFunctionNewtonAdaptive::suggestNext(double /*t_current*/)
 		return t;
 };
 
-bool TimeStepFunctionNewtonAdaptive::accept(double /*t_current*/)
+bool TimeStepFunctionNewtonAdaptive::accept(double t_current)
 {
     // if the _iter_times is larger than 
     // the last _iter_times_vector value
     size_t size_tmp = _iter_times_vector.size(); 
     if ( size_tmp > 0 )
-        if ( this->_iter_times > _iter_times_vector[size_tmp-1] )
-            return false; // then do not accept this step
+		if (this->_iter_times > _iter_times_vector[size_tmp - 1])
+		{
+			if (t_current == getPrevious() + _min_ts)
+			{
+				return true;
+			}
+			else
+				return false; // then do not accept this step
+		}
+            
 
     return true; 
 }

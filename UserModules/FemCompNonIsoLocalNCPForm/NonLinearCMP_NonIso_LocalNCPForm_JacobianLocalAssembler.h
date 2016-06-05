@@ -77,7 +77,7 @@ public:
 		FemLib::IFiniteElement* fe = _feObjects.getFeObject(e);
 		MaterialLib::PorousMedia* pm = Ogs6FemData::getInstance()->list_pm[mat_id];
 
-		double eps = 1e-7;
+		double eps = 1e-8;
 
 		for (size_t u_idx = 0; u_idx < n_dof; u_idx++)
 		{
@@ -279,27 +279,34 @@ protected:
 			//+++++++++++++++++++++++++End Calculate++++++++++++++++++++++++++++++++++++++++++++++++
 			PC_gp(0) = pm->getPc_bySat(S_gp(0));
 			dPC_dSg_gp(0) = pm->Deriv_dPCdS(S_gp(0));
-			P_Gh_gp(0) = _EOS->getPGH(P_gp(0, 0), T_gp(0, 0));
+			
 			//P_Gw_gp(0) = P_gp(0, 0) - P_Gh_gp(0);
-			P_Gw_gp(0) = _EOS->getPGW(P_gp(0, 0), P_Gh_gp(0), T_gp(0, 0));
-			rho_G_w_gp(0) = P_Gw_gp(0)*M_L / R / T_gp(0, 0);
+			P_Gw_gp(0) = _EOS->getPGW(P_gp(0, 0), PC_gp(0), T_gp(0, 0));
+			P_Gh_gp(0) = P_gp(0, 0) - P_Gw_gp(0);//rho_G_h_gp(0)*C_v;// 
+			rho_G_w_gp(0) =P_Gw_gp(0)*C_w;//P_gp(0, 0)*C_w - M_L*rho_G_h_gp(0) / M_G; // 
 
 			Xvap_gp(0) = P_Gw_gp(0) / P_gp(0, 0);//MOLAR FRACTION
-			massfractionXair_gp(0) = rho_G_h_gp(0) / (rho_G_w_gp(0) + rho_G_h_gp(0));
+			massfractionXair_gp(0) = _EOS->get_massfraction(1-Xvap_gp(0));// rho_G_h_gp(0) / (rho_G_w_gp(0) + rho_G_h_gp(0));//
+			//double check=
 			EnthalpyH_G_gp(0) = C_pg*(T_gp(0, 0) - T0)*massfractionXair_gp(0) + (C_pl*(T_gp(0, 0) - T0) + delta_h_vap)*(1 - massfractionXair_gp(0));
 			EnthalpyH_L_gp(0) = C_pl*(T_gp(0, 0) - T0);
 			//+++++++++++++++++++++++++Calculate the derivatives +++++++++++++++++++++++++++++++++++
-			dPGh_dP_gp(0) = _EOS->Deriv_PGH_dPG(P_gp(0, 0), P_Gh_gp(0), T_gp(0, 0));
-			dPGh_dT_gp(0) = _EOS->Deriv_PGH_dT(P_gp(0, 0), P_Gh_gp(0), T_gp(0, 0));
+			rho_L_h_gp(0) = 0.0;//
+			dPGw_dP_gp(0) = 0.0;
+			dPGw_dT_gp(0) = _EOS->Deriv_dPGw_dT(PC_gp(0), T_gp(0, 0));
 
-			dPGw_dP_gp(0) = 1 - dPGh_dP_gp(0);
-			dPGw_dT_gp(0) = -dPGh_dT_gp(0);
+			dPGh_dP_gp(0) = 1;
+			dPGh_dT_gp(0) = -dPGw_dT_gp(0);
+			
 
+			drho_L_h_dP_gp(0) = 0.0;// Hen*M_G*dPGh_dP_gp(0, 0);
+			drho_L_h_dT_gp(0) = 0.0;// Hen*M_G*dPGh_dT_gp(0, 0);
+			
 			drho_G_hdP_gp(0) = dPGh_dP_gp(0)*C_v;
 			drho_G_h_dT_gp(0) = dPGh_dT_gp(0)*C_v - P_Gh_gp(0)*C_v / T_gp(0, 0);
 
-			drho_L_h_dP_gp(0) = Hen*M_G*dPGh_dP_gp(0, 0);
-			drho_L_h_dT_gp(0) = Hen*M_G*dPGh_dT_gp(0, 0);
+			/*drho_G_w_dP_gp(0) = C_w - M_L*drho_G_hdP_gp(0) / M_G;
+			drho_G_w_dT_gp(0) = -M_L*drho_G_h_dT_gp(0) / M_G;*/
 
 			drho_G_w_dP_gp(0) = dPGw_dP_gp(0)*C_w;
 			drho_G_w_dT_gp(0) = dPGw_dT_gp(0)*C_w - P_Gw_gp(0)*C_w / T_gp(0, 0);
@@ -314,7 +321,7 @@ protected:
 			//+++++++++++++++++++++++++End Calculation++++++++++++++++++++++++++++++++++++++++++++++
 			//+++++++++++++++++++++++++Calculate secondary variable for energy balance equations++++
 			RHO_G = rho_G_h_gp(0) + rho_G_w_gp(0);// mass density of gas phase
-			RHO_L = rho_l_std + rho_L_h_gp(0);
+			RHO_L = rho_l_std;// +rho_L_h_gp(0);
 			Lam_pm_gp(0) = _EOS->get_overall_Heat_Capacity(S_gp(0));
 
 			//+++++++++++++++++++++++++End calculate +++++++++++++++++++++++++++++++++++++++++++++++
@@ -328,23 +335,23 @@ protected:
 
 
 			M(2, 0) = poro*S_gp(0)*(drho_G_hdP_gp(0) + drho_G_w_dP_gp(0))*EnthalpyH_G_gp(0)
-			+ poro*(1 - S_gp(0))*drho_L_h_dP_gp(0)*EnthalpyH_L_gp(0)
-			+ poro*RHO_G*EnthalpyH_G_gp(0)*dSgdP_gp(0)
-			- poro*RHO_L*EnthalpyH_L_gp(0)*dSgdP_gp(0)
-			- poro*S_gp(0) - poro*P_gp(0, 0)*dSgdP_gp(0);
-			
+				+ poro*RHO_G*EnthalpyH_G_gp(0)*dSgdP_gp(0)
+				- poro*RHO_L*EnthalpyH_L_gp(0)*dSgdP_gp(0)
+				- poro*S_gp(0) - poro*P_gp(0, 0)*dSgdP_gp(0);
+			//+ poro*(1 - S_gp(0))*drho_L_h_dP_gp(0)*EnthalpyH_L_gp(0)
 
 			M(2, 1) = poro*RHO_G*EnthalpyH_G_gp(0)*dSgdX_gp(0)
-			- poro*RHO_L*EnthalpyH_L_gp(0)*dSgdX_gp(0)
-			- poro*P_gp(0, 0)*dSgdX_gp(0);
+				- poro*RHO_L*EnthalpyH_L_gp(0)*dSgdX_gp(0)
+				- poro*P_gp(0, 0)*dSgdX_gp(0);
 
 			M(2, 2) = (1 - poro)*rho_S_std*C_solid
 				+ poro*RHO_G*S_gp(0, 0)*(C_pg*massfractionXair_gp(0, 0) + C_pl*(1 - massfractionXair_gp(0, 0))) + poro*RHO_L*C_pl*(1 - S_gp(0, 0))
-			- poro*P_gp(0, 0)*dSgdT_gp(0)				
-			+ poro*RHO_G*EnthalpyH_G_gp(0)*dSgdT_gp(0)
-			- poro*RHO_L*EnthalpyH_L_gp(0)*dSgdT_gp(0);
+				+ poro*(drho_G_w_dT_gp(0) + drho_G_h_dT_gp(0))*EnthalpyH_G_gp(0)*S_gp(0, 0)
+				- poro*P_gp(0, 0)*dSgdT_gp(0)
+				+ poro*RHO_G*EnthalpyH_G_gp(0)*dSgdT_gp(0)
+				- poro*RHO_L*EnthalpyH_L_gp(0)*dSgdT_gp(0);
 
-
+            //+ poro*RHO_G*S_gp(0, 0)*(C_pg*(T_gp(0, 0) - T0)*dmassXair_dT_gp(0) - (C_pl*(T_gp(0, 0) - T0) + delta_h_vap)*dmassXair_dT_gp(0))
 			//-------------debugging------------------------
 			//std::cout << "M=" << std::endl;
 			//std::cout << M << std::endl;
@@ -372,6 +379,10 @@ protected:
 			vel_L_gp = -lambda_L*((dNp)*u1.head(n_nodes)
 				- dPC_dSg_gp(0)*(dSgdP_gp(0)*(dNp)*u1.head(n_nodes) + dSgdX_gp(0)*(dNp)*u1.block(n_nodes, 0, n_nodes, 1) + dSgdT_gp(0)*(dNp)*u1.tail(n_nodes)));
 			vel_G_gp = -lambda_G*(dNp)*u1.head(n_nodes);
+			vel_X_G_gp = -(poro*S_gp(0)*D_G*(1 / RHO_G)*(rho_G_w_gp(0)*drho_G_hdP_gp(0) - rho_G_h_gp(0)*drho_G_w_dP_gp(0)))*(dNp)*u1.head(n_nodes)
+				- (poro*S_gp(0)*D_G*(1 / RHO_G)*(rho_G_w_gp(0)*drho_G_h_dT_gp(0) - rho_G_h_gp(0)*drho_G_w_dT_gp(0)))*(dNp)*u1.tail(n_nodes);
+			vel_X_L_gp = - poro*(1 - S_gp(0))*rho_l_std*(1 / RHO_L)*D_L*drho_L_h_dP_gp(0)*(dNp)*u1.head(n_nodes)
+				- (poro*(1 - S_gp(0))*rho_l_std*(1 / RHO_L)*D_L*drho_L_h_dT_gp(0))*(dNp)*u1.tail(n_nodes);
 			//+++++++++++++++++++++++++ End Calculate+++++++++++++++++++++++++++++++++++++++
 			isinf = _finite(dPC_dSg_gp(0));
 			if (isinf == 0)
@@ -383,10 +394,14 @@ protected:
 				dPC_dSg_gp(0) = dPC_dSg_gp(0);
 			}
 
-			A1(2, 2) = C_pl*RHO_L*vel_L_gp(0) + (C_pg*massfractionXair_gp(0) + C_pl*(1 - massfractionXair_gp(0))) *RHO_G*vel_G_gp(0);
+			A1(2, 2) = C_pl*RHO_L*vel_L_gp(0) + (C_pg*massfractionXair_gp(0) + C_pl*(1 - massfractionXair_gp(0))) *RHO_G*vel_G_gp(0)
+				+ C_pg*massfractionXair_gp(0)*vel_X_G_gp(0);
 			if (n_dim > 1){
-				A2(2, 2) = C_pl*RHO_L*vel_L_gp(1) + (C_pg*massfractionXair_gp(0) + C_pl*(1 - massfractionXair_gp(0))) *RHO_G*vel_G_gp(1);
+				A2(2, 2) = C_pl*RHO_L*vel_L_gp(1) + (C_pg*massfractionXair_gp(0) + C_pl*(1 - massfractionXair_gp(0))) *RHO_G*vel_G_gp(1)
+					+ C_pg*massfractionXair_gp(0)*vel_X_G_gp(1);
 			}
+			//std::cout << A1 << std::endl;
+			//std::cout << A2 << std::endl;
 			for (ii = 0; ii < 3; ii++){
 				for (jj = 0; jj < 3; jj++){
 					tmp_adv(0, 0) = A1(ii, jj);
@@ -395,7 +410,7 @@ protected:
 					}
 					localAdvection_tmp.setZero();
 					fe->integrateWxDN(j, tmp_adv, localAdvection_tmp);
-					localK.block(n_nodes*ii, n_nodes*jj, n_nodes, n_nodes) -= localAdvection_tmp;
+					localK.block(n_nodes*ii, n_nodes*jj, n_nodes, n_nodes) += localAdvection_tmp;
 				}
 			}
 
@@ -478,6 +493,8 @@ private:
 	MathLib::LocalVector S_gp;
 	MathLib::LocalVector vel_L_gp;
 	MathLib::LocalVector vel_G_gp;
+	MathLib::LocalVector vel_X_G_gp;
+	MathLib::LocalVector vel_X_L_gp;
 	MathLib::LocalVector grad_X_L;
 	MathLib::LocalVector grad_X_G;
 	MathLib::LocalVector Lam_pm_gp;

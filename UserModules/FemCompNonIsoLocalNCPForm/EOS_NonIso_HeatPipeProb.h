@@ -65,7 +65,7 @@ public:
 		double rho_L_h = vec_unknowns(1);
 		double rho_G_h = vec_unknowns(2);
 		// calculating PG_h partial pressure of light component
-		double PGH = getPGH(P_L, T_L);//
+		double PGH = P_L - get_P_sat(T_L);//
 		//calculate the residual
 		res(0) =  X_L - rho_G_h*Sg - rho_L_h*(1 - Sg);
 		res(1) = std::min(Sg, PGH*Hen*M_G - rho_L_h);
@@ -128,7 +128,7 @@ public:
 		double rho_G_h = vec_unknowns(2);
 		
 		
-		double PGH = getPGH(P_L,T_L);
+		double PGH = P_L - get_P_sat(T_L);//
 		double F1 = Sg;
 		double G1 = PGH*Hen*M_G - rho_L_h;
 		double F2 = 1 - Sg;
@@ -257,11 +257,12 @@ public:
 		return PGH;
 	}
 
-	virtual double getPGW(double PG, double PGH, double T)
+	virtual double getPGW(double PG, double PC,  double T)
 	{
 		double P_sat = get_P_sat(T);
 		double PGW(0.0);
-		PGW = P_sat*(rho_l_std / (rho_l_std + (M_L / M_G)*Hen*M_G*PGH));
+		double  C_w = M_L / R / T;
+		PGW = P_sat;// *exp(-(PC)*C_w / rho_l_std);// *(rho_l_std / (rho_l_std + (M_L / M_G)*Hen*M_G*PGH));
 
 		return PGW;
 	}
@@ -298,32 +299,7 @@ public:
 		return -(drho_L_h_dT*(1 - Sg) + drho_G_hdT*Sg) / (rho_G_h - rho_L_h);
 	}
 
-	/*
-	*calculate the partial vapor pressure 
-	* regulated by water saturation pressure 
-	*/
-	virtual double get_P_G_w(double PG, double rho_L_h, double PC, double T)
-	{
-		double P_sat(0.0);
-		double P_gw(0.0);
-		P_sat = get_P_sat_S(T);
-		double C_w = M_L / R / T;
-		P_gw = P_sat*exp(-(PC)*C_w / rho_l_std)*(rho_l_std / (rho_l_std + M_L*rho_L_h/M_G));
-		return P_gw;
-	}
-
-	virtual double get_P_sat_S(double T)
-	{
-		// Here unit of T is Celsius;
-		double P_sat(0.0);
-		double T_0 = 373.15;
-		double P_0 = 101325.0;
-		double h_wg = 2258000.0;
-		P_sat = P_0*exp(((1 / T_0) - (1 / T))*M_L*h_wg / R);
-		//if (T>T_0+2)
-		//P_sat = P_0;
-		return P_sat;
-	}
+	
 	
 	virtual double get_P_sat(double T)
 	{
@@ -358,28 +334,17 @@ public:
 		double T_0 = 373.15;
 		double P_0 = 101325;
 		double h_wg = 2258000.0;
-
 		dPsat_dT = P_0*exp(((1 / T_0) - (1 / T))*M_L*h_wg / R)*(M_L*h_wg / R)*(1/T/T);
 		return dPsat_dT;
 	}
 	
-	virtual double Deriv_dPGw_dP(double rho_L_h,double drho_L_hdP, double T)
+	virtual double Deriv_dPGw_dT(double PC, double T)
 	{
-		double A = M_L / M_G;
-		double P_sat = get_P_sat(T);
-		return P_sat*(-A*rho_l_std / pow((rho_l_std + A*rho_L_h), 2))*drho_L_hdP;
-		
-	}
-	virtual double Deriv_dPGw_dT(double rho_L_h, double drho_L_hdT, double T)
-	{
-		double A = M_L / M_G;
+		double C_w = M_L / R / T;
 		double P_sat = get_P_sat(T);
 		double dPsat_dT = Deriv_dPsat_dT(T);
-		return dPsat_dT*(rho_l_std / (rho_l_std + A*rho_L_h)) + P_sat*(-A*rho_l_std / pow((rho_l_std + A*rho_L_h), 2))*drho_L_hdT;
-
+		return dPsat_dT;// *exp(-PC*C_w / rho_l_std) + P_sat*exp(-PC*C_w / rho_l_std)*(PC*M_L / rho_l_std / R / T / T);
 	}
-
-
 
 	/**
 	* OVERALL HEAT CAPACITY

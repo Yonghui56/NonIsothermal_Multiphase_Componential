@@ -63,7 +63,7 @@ public:
 	/**
 	  * tolorence of newton iteration
 	  */
-	const double tot = 1.0e-12; //a small tolorence is necessary for the iteration
+	const double tot = 1.0e-13; //a small tolorence is necessary for the iteration
 	
 	/**
 	  * parameter to calc the N_G
