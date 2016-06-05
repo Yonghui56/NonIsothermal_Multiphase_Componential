@@ -102,8 +102,8 @@ protected:
 		T_gp = LocalMatrixType::Zero(1, 1);
 
 		Input = LocalVectorType::Zero(3);
-		Output = LocalVectorType::Zero(3);
-
+		Output = LocalVectorType::Zero(4);
+		LocalMatrixType matSecDer = LocalMatrixType::Zero(4, 3);
 		S_gp = LocalVectorType::Zero(1);
 		rho_G_h_gp = LocalVectorType::Zero(1);
 		rho_G_w_gp =  LocalVectorType::Zero(1);
@@ -202,7 +202,7 @@ protected:
 			Input(1) = X_gp(0, 0);
 			Input(2) = T_gp(0, 0);
 			//deliver the initial guess
-			
+			_EOS->set_env_condition(Input);
 			//_function_data->getS()->setIntegrationPointValue(ele_id, j, S_gp);
 			_function_data->getS()->eval(gp_pos, test);
 			Output(0) = test(0,0);
@@ -210,14 +210,17 @@ protected:
 			Output(1) = test(0, 0);
 			_function_data->get_rhoGh()->eval(gp_pos, test);
 			Output(2) = test(0, 0);
+			_function_data->get_rhoGh()->eval(gp_pos, test);
+			Output(3) = (P_gp(0, 0) - _EOS->get_P_sat(T_gp(0, 0))) / P_gp(0, 0);
 
-			_EOS->set_env_condition(Input);
+			
  			_LP_EOS->solve(Input, Output);
-
+			_LP_EOS->calc_Deriv_xx(Input, Output, matSecDer);
+			
 			S_gp(0) = Output(0);
 			rho_L_h_gp(0) = Output(1);
 			rho_G_h_gp(0) = Output(2);
-
+			P_Gh_gp(0) = Output(3)*P_gp(0, 0);
 			_function_data->getS()->setIntegrationPointValue(ele_id, j, S_gp);			
 			_function_data->get_rhoLh()->setIntegrationPointValue(ele_id, j, rho_L_h_gp);
 			_function_data->get_rhoGh()->setIntegrationPointValue(ele_id, j, rho_G_h_gp);
@@ -226,9 +229,10 @@ protected:
 			dPC_dSg_gp(0) = pm->Deriv_dPCdS(S_gp(0));
 			
 			//P_Gw_gp(0) = P_gp(0, 0) - P_Gh_gp(0);
-			P_Gw_gp(0) = _EOS->getPGW(P_gp(0, 0), PC_gp(0), T_gp(0,0));
-			P_Gh_gp(0) = P_gp(0, 0) - P_Gw_gp(0);// 
-			rho_G_w_gp(0) = P_Gw_gp(0)*C_w;//P_gp(0, 0)*C_w - M_L*rho_G_h_gp(0) / M_G;//
+			P_Gw_gp(0) = _EOS->getPGW(P_gp(0, 0), PC_gp(0), rho_L_h_gp(0),T_gp(0, 0));
+			
+			rho_G_w_gp(0) = P_Gw_gp(0)*C_w;//
+			double rho_G_w=P_gp(0, 0)*C_w - M_L*rho_G_h_gp(0) / M_G;//
 			
 			Xvap_gp(0) = P_Gw_gp(0) / P_gp(0, 0);//MOLAR FRACTION
 			//massfractionXair_gp(0) = _EOS->get_massfraction(1 - Xvap_gp(0));
@@ -240,24 +244,29 @@ protected:
 			dPGw_dP_gp(0) = 0.0;
 			dPGw_dT_gp(0) = _EOS->Deriv_dPGw_dT(PC_gp(0), T_gp(0, 0));
 			
-			dPGh_dP_gp(0) = 1;
-			dPGh_dT_gp(0) = -dPGw_dT_gp(0);
-		
-			drho_L_h_dP_gp(0) = Hen*M_G*dPGh_dP_gp(0, 0);
-			drho_L_h_dT_gp(0) = Hen*M_G*dPGh_dT_gp(0, 0);
+			dPGh_dP_gp(0) = P_gp(0, 0)*matSecDer(3, 0) + P_Gh_gp(0) / P_gp(0, 0);
+			//double dPGh_dP = P_gp(0, 0)*matSecDer(3, 0) + P_Gh_gp(0) / P_gp(0, 0);
+			dPGh_dT_gp(0) = P_gp(0, 0)*matSecDer(3, 2);
+			//double dPGh_dT = P_gp(0, 0)*matSecDer(3, 2);
 
-			drho_G_hdP_gp(0) = dPGh_dP_gp(0)*C_v;
-			drho_G_h_dT_gp(0) = dPGh_dT_gp(0)*C_v - P_Gh_gp(0)*C_v / T_gp(0, 0);
+			drho_L_h_dP_gp(0) = matSecDer(1, 0);
+			//double drho_L_h_dP = matSecDer(1, 0);
+			drho_L_h_dT_gp(0) = matSecDer(1, 2);
+			//double drho_L_h_dT = matSecDer(1, 2);
 
+			drho_G_hdP_gp(0) = matSecDer(2, 0);
+			//double drho_G_hdP = matSecDer(2, 0);
+			drho_G_h_dT_gp(0) = matSecDer(2, 2);
+			/*double drho_G_hdT = matSecDer(2, 2);*/
 			/*drho_G_w_dP_gp(0) = C_w - M_L*drho_G_hdP_gp(0) / M_G;
 			drho_G_w_dT_gp(0) = -M_L*drho_G_h_dT_gp(0) / M_G;*/
 
 			drho_G_w_dP_gp(0) = dPGw_dP_gp(0)*C_w;
 			drho_G_w_dT_gp(0) = dPGw_dT_gp(0)*C_w - P_Gw_gp(0)*C_w / T_gp(0, 0);
 
-			dSgdX_gp(0) = _EOS->Deriv_dSgdX(S_gp(0), rho_L_h_gp(0), rho_G_h_gp(0), drho_L_h_dX_gp(0), drho_G_hdX_gp(0));
-			dSgdP_gp(0) = _EOS->Deriv_dSgdP(S_gp(0), rho_L_h_gp(0), rho_G_h_gp(0), drho_L_h_dP_gp(0), drho_G_hdP_gp(0));
-			dSgdT_gp(0) = _EOS->Deriv_dSgdT(S_gp(0), rho_L_h_gp(0), rho_G_h_gp(0), drho_L_h_dT_gp(0), drho_G_h_dT_gp(0));
+			dSgdX_gp(0) = matSecDer(0, 1);// _EOS->Deriv_dSgdX(S_gp(0), rho_L_h_gp(0), rho_G_h_gp(0), drho_L_h_dX_gp(0), drho_G_hdX_gp(0));
+			dSgdP_gp(0) = matSecDer(0, 0);// _EOS->Deriv_dSgdP(S_gp(0), rho_L_h_gp(0), rho_G_h_gp(0), drho_L_h_dP_gp(0), drho_G_hdP_gp(0));
+			dSgdT_gp(0) = matSecDer(0, 2);// _EOS->Deriv_dSgdT(S_gp(0), rho_L_h_gp(0), rho_G_h_gp(0), drho_L_h_dT_gp(0), drho_G_h_dT_gp(0));
 
 			dmassXair_dP_gp(0) = M_G*M_L*(P_Gw_gp(0) - P_gp(0, 0)*dPGw_dP_gp(0)) / pow((M_G*P_gp(0, 0) + M_L*P_Gw_gp(0)), 2);
 			dmassXair_dX_gp(0) = 0.0;

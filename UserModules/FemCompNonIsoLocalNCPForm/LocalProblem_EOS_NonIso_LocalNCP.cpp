@@ -50,28 +50,28 @@ LocalProblem_EOS_NonIso_LocalNCP::~LocalProblem_EOS_NonIso_LocalNCP(void)
  */
 void LocalProblem_EOS_NonIso_LocalNCP::solve(ogsChem::LocalVector & Input, ogsChem::LocalVector & Output)
 {
-	if (Input.size() == 3 && Output.size() == 3)
+	if (Input.size() == 3 && Output.size() == 4)
 	{		
 		std::size_t m_flag = 1; 
 		//This part is for semi-smooth newton iteration of local problem with complementary condition
 		_EOS->set_env_condition(Input);
-		U_ini = Output.head(3);
+		U_ini = Output.head(4);
 		
 		this->solve_LocalProblem_Newton_LineSearch(m_flag);
 		if (m_flag == 0)
 		{
-			Output.head(3) = U_cur;
+			Output.head(4) = U_cur;
 			//std::cout << U_cur << std::endl;
 		}
 		else
 		{
-			//WARN("Solving local EOS problem does not converge! \n Using old values as seoncdary varibales. \n"); 
+			WARN("Solving local EOS problem does not converge! \n Using old values as seoncdary varibales. \n"); 
 			U_ini << 0.0, 0.0, 0.0;
 			_EOS->set_env_condition(Input);
 			this->solve_LocalProblem_Newton_LineSearch(m_flag);
 			if (m_flag == 0)
 			{
-				Output.head(3) = U_cur;
+				Output.head(4) = U_cur;
 			}
 			//std::cout << Input << std::endl;
 			//std::cout << U_ini << std::endl;
@@ -87,7 +87,38 @@ void LocalProblem_EOS_NonIso_LocalNCP::solve(ogsChem::LocalVector & Input, ogsCh
 
 }
 //void LocalProblem_EOS::der
+void LocalProblem_EOS_NonIso_LocalNCP::calc_Deriv_xx(ogsChem::LocalVector & INPUT, ogsChem::LocalVector & OUTPUT, MathLib::LocalMatrix & matSecDer)
+{
+	//CALCULATE THE DERIVATIVE OF THE SMALL VALUE ON P
 
+	MathLib::LocalVector output_p, output_x, output_T;
+	MathLib::LocalVector input_p, input_x, input_T;
+
+	output_p = OUTPUT;
+	input_p = INPUT;
+	input_p(0) = input_p(0) + eps;
+	// directly use the output value as the initial guess of the next calculation
+	solve(input_p, output_p);
+	//store the output value
+
+
+	////CALCULATE THE DERIVATIVE OF THE SMALL VALUE ON X
+	output_x = OUTPUT;
+	input_x = INPUT;
+	input_x(1) = input_x(1) + eps;
+	solve(input_x, output_x);
+
+	////CALCULATE THE DERIVATIVE OF THE SMALL VALUE ON T
+	output_T = OUTPUT;
+	input_T = INPUT;
+	input_T(2) = input_T(2) + eps;
+	solve(input_T, output_T);
+	// here is the derivative operations. 
+	matSecDer.col(0) = (output_p - OUTPUT) / eps;
+	matSecDer.col(1) = (output_x - OUTPUT) / eps;
+	matSecDer.col(2) = (output_T - OUTPUT) / eps;
+	//std::cout << matSecDer << std::endl;
+};
 /**
   * TODO: describe this function
   */

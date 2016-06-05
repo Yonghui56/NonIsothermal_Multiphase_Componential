@@ -17,7 +17,7 @@
 #include <algorithm>
 #include "AbstractEOS_NonIso_LocalNCPForm.h"
 #include <cmath>
-
+#include "LocalProblem_EOS_NonIso_LocalNCP.h"
 
 /**
 *  EOS formulation for calculating each secondary variable
@@ -30,8 +30,9 @@ public:
 	/**
 	  * Constructor
 	  */
-	EOS_NonIso_HeatPipeProb() : AbstractEOS_NonIso_LocalNCPForm(3)
+	EOS_NonIso_HeatPipeProb() : AbstractEOS_NonIso_LocalNCPForm(4)
 	{
+		
 	};
 
 	/**
@@ -64,12 +65,14 @@ public:
 		double Sg = vec_unknowns(0);
 		double rho_L_h = vec_unknowns(1);
 		double rho_G_h = vec_unknowns(2);
-		// calculating PG_h partial pressure of light component
-		double PGH = P_L - get_P_sat(T_L);//
+		double PGH_bar = vec_unknowns(3);
+		double P_sat = get_P_sat(T_L);
 		//calculate the residual
+		
 		res(0) =  X_L - rho_G_h*Sg - rho_L_h*(1 - Sg);
-		res(1) = std::min(Sg, PGH*Hen*M_G - rho_L_h);
-		res(2) = std::min(1 - Sg, rho_G_h - PGH*M_G / R / T_L);
+		res(1) = std::min(Sg, P_L*PGH_bar*Hen*M_G - rho_L_h);
+		res(2) = std::min(1 - Sg, rho_G_h - P_L*PGH_bar*M_G / R / T_L);
+		res(3) = 1 - PGH_bar - P_sat*(1/P_L)*(rho_l_std / (rho_l_std + (M_L / M_G)*rho_L_h));
 	};
 
 	virtual double NCP1(double Sg, double rho_L_h, double rho_G_h)
@@ -126,9 +129,9 @@ public:
 		double Sg = vec_unknowns(0);
 		double rho_L_h = vec_unknowns(1);
 		double rho_G_h = vec_unknowns(2);
-		
-		
-		double PGH = P_L - get_P_sat(T_L);//
+		double PGH_bar = vec_unknowns(3);
+		double PGH = PGH_bar*P_L;
+		double P_sat= get_P_sat(T_L);//
 		double F1 = Sg;
 		double G1 = PGH*Hen*M_G - rho_L_h;
 		double F2 = 1 - Sg;
@@ -138,27 +141,36 @@ public:
 		J(0, 0) = -rho_G_h+rho_L_h;//-----dF(1)/dSg
 		J(0, 1) = -1 + Sg;//dRHO_L_H
 		J(0, 2) = -Sg;
+		J(0, 3) = 0;
 		if (F1 <= G1) {
 			J(1, 0) = 1.0;
 			J(1, 1) = 0.0;
 			J(1, 2) = 0.0;
+			J(1, 3) = 0.0;
 		}
 		else{
 			J(1, 0) = 0.0;// -C_v*Deriv_dPGH_dPG(Sg)*Deriv_dPGdSg(Sg);
 			J(1, 1) = -1.0;
 			J(1, 2) = 0.0;	
+			J(1, 3) = P_L*Hen*M_G;
 		}
 		if (F2 <= G2) {
 			J(2, 0) = -1.0;
 			J(2, 1) = 0.0;
 			J(2, 2) = 0.0;
+			J(2, 3) = 0.0;
 		}
 		else{
 			J(2, 0) = 0.0;// -C_v*Deriv_dPGH_dPG(Sg)*Deriv_dPGdSg(Sg);
 			J(2, 1) = 0.0;
 			J(2, 2) = 1.0;
+			J(2, 3) = -P_L*M_G / R / T_L;
 
 		}
+		J(3, 0) = 0.0;// -C_v*Deriv_dPGH_dPG(Sg)*Deriv_dPGdSg(Sg);
+		J(3, 1) = P_sat*rho_l_std*(M_L / M_G)*(1 / P_L)*pow(rho_l_std + (M_L / M_G)*rho_L_h, -2);
+		J(3, 2) = 0.0;
+		J(3, 3) = -1;
 	};
 	
 
@@ -167,6 +179,8 @@ public:
 	{
 		
 	};
+
+
 	virtual double Calc_Res_Sg(double Sg, double rho_L_h, double rho_G_h)
 	{
 		double Res_Sg(0.0);
@@ -257,12 +271,12 @@ public:
 		return PGH;
 	}
 
-	virtual double getPGW(double PG, double PC,  double T)
+	virtual double getPGW(double PG, double PC, double rho_L_h, double T)
 	{
 		double P_sat = get_P_sat(T);
 		double PGW(0.0);
 		double  C_w = M_L / R / T;
-		PGW = P_sat;// *exp(-(PC)*C_w / rho_l_std);// *(rho_l_std / (rho_l_std + (M_L / M_G)*Hen*M_G*PGH));
+		PGW = P_sat*(rho_l_std / (rho_l_std + (M_L / M_G)*rho_L_h));
 
 		return PGW;
 	}
@@ -338,12 +352,12 @@ public:
 		return dPsat_dT;
 	}
 	
-	virtual double Deriv_dPGw_dT(double PC, double T)
+	virtual double Deriv_dPGw_dT(double PC, double T, double rho_L_h)
 	{
 		double C_w = M_L / R / T;
 		double P_sat = get_P_sat(T);
 		double dPsat_dT = Deriv_dPsat_dT(T);
-		return dPsat_dT;// *exp(-PC*C_w / rho_l_std) + P_sat*exp(-PC*C_w / rho_l_std)*(PC*M_L / rho_l_std / R / T / T);
+		return dPsat_dT* (rho_l_std / (rho_l_std + (M_L / M_G)*rho_L_h)) ;
 	}
 
 	/**
@@ -377,6 +391,7 @@ private:
 	double P_L;
 	double X_L;
 	double T_L;
+	
 };
 
 
