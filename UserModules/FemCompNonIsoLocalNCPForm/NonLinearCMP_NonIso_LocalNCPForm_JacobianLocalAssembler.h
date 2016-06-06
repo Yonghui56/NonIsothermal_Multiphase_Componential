@@ -274,7 +274,7 @@ protected:
 
 			_LP_EOS->solve(Input, Output);
 			_LP_EOS->calc_Deriv_xx(Input, Output, matSecDer);
-
+			//_LP_EOS->calc_Deriv_aa(Input, Output, matSecDer);
 			S_gp(0) = Output(0);
 			rho_L_h_gp(0) = Output(1);
 			rho_G_h_gp(0) = Output(2);

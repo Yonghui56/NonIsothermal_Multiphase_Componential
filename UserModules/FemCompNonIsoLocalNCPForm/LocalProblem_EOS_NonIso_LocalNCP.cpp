@@ -66,7 +66,7 @@ void LocalProblem_EOS_NonIso_LocalNCP::solve(ogsChem::LocalVector & Input, ogsCh
 		else
 		{
 			WARN("Solving local EOS problem does not converge! \n Using old values as seoncdary varibales. \n"); 
-			U_ini << 0.0, 0.0, 0.0;
+			U_ini << 0.0, 0.0, 0.0,0.0;
 			_EOS->set_env_condition(Input);
 			this->solve_LocalProblem_Newton_LineSearch(m_flag);
 			if (m_flag == 0)
@@ -137,42 +137,10 @@ void LocalProblem_EOS_NonIso_LocalNCP::calc_Deriv_aa(ogsChem::LocalVector & INPU
 	//CALCULATE THE DERIVATIVE OF THE SMALL VALUE ON P
 	MathLib::LocalMatrix Jac_sec = MathLib::LocalMatrix::Zero(N, N);
 	MathLib::LocalMatrix Jac_prior = MathLib::LocalMatrix::Zero(N, N-1);
-	MathLib::LocalVector output_s, output_rlh, output_rgh,output_pgh,vec_P,vec_X,vec_T;
-	MathLib::LocalVector dSdP = MathLib::LocalVector::Zero(1);
 	_EOS->calc_Jacobian(OUTPUT, Jac_sec);
 	_EOS->calc_Jacobian_loc_Prior(OUTPUT, Jac_prior);
-	output_s = Jac_sec.col(0);
-	output_rlh = Jac_sec.col(1);
-	output_rgh =Jac_sec.col(2);
-	output_pgh = Jac_sec.col(3);
-	vec_P = Jac_prior.col(0);
-	vec_X = Jac_prior.col(1);
-	vec_T = Jac_prior.col(2);
-	dSdP = output_s.inverse()*vec_P;
-	MathLib::LocalVector dSdX = output_s.inverse()*vec_X;
-	MathLib::LocalVector dSdT = output_s.inverse()*vec_T;
-	MathLib::LocalVector dRLHdP = output_rlh.inverse()*vec_P;
-	MathLib::LocalVector dRLHdX = output_rlh.inverse()*vec_X;
-	MathLib::LocalVector dRLHdT = output_rlh.inverse()*vec_T;
-	MathLib::LocalVector dRGHdP = output_rgh.inverse()*vec_P;
-	MathLib::LocalVector dRGHdX = output_rgh.inverse()*vec_X;
-	MathLib::LocalVector dRGHdT = output_rgh.inverse()*vec_T;
-	MathLib::LocalVector dPGHdP = output_pgh.inverse()*vec_P;
-	MathLib::LocalVector dPGHdX = output_pgh.inverse()*vec_X;
-	MathLib::LocalVector dPGHdT = output_pgh.inverse()*vec_T;
-	// here is the derivative operations. 
-	matSecDer(0, 0) = dSdP(0);
-	matSecDer(0, 1) = dSdX(0);
-	matSecDer(0, 2) = dSdT(0);
-	matSecDer(1, 0) = dRLHdP(0);
-	matSecDer(1, 1) = dRLHdX(0);
-	matSecDer(1, 2) = dRLHdT(0);
-	matSecDer(2, 0) = dRGHdP(0);
-	matSecDer(2, 1) = dRGHdX(0);
-	matSecDer(2, 2) = dRGHdT(0);
-	matSecDer(3, 0) = dPGHdP(0);
-	matSecDer(3, 1) = dPGHdX(0);
-	matSecDer(3, 2) = dPGHdT(0);
+	
+	matSecDer = Jac_sec.inverse()*Jac_prior;
     //std::cout << matSecDer << std::endl;
 };
 /**

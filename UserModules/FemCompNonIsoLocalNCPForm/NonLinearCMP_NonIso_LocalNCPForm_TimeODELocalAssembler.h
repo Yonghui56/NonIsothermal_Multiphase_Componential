@@ -216,8 +216,9 @@ protected:
 			
  			_LP_EOS->solve(Input, Output);
 			_LP_EOS->calc_Deriv_xx(Input, Output, matSecDer);
-
-
+			//std::cout << matSecDer << std::endl;
+			//_LP_EOS->calc_Deriv_aa(Input, Output, matSecDer);
+			//std::cout << matSecDer << std::endl;
 			//std::cout << matSecDer << std::endl;
 			//_LP_EOS->calc_Deriv_aa(Input, Output, matSecDer);
 			//std::cout << matSecDer << std::endl;

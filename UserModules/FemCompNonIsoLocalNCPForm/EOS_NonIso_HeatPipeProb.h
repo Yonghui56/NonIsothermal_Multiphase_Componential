@@ -198,7 +198,7 @@ public:
 			J(1, 2) = 0.0;
 		}
 		else{
-			J(1, 0) = 0.0;// -C_v*Deriv_dPGH_dPG(Sg)*Deriv_dPGdSg(Sg);
+			J(1, 0) = PGH_bar*Hen*M_G;// -C_v*Deriv_dPGH_dPG(Sg)*Deriv_dPGdSg(Sg);
 			J(1, 1) = 0.0;
 			J(1, 2) = 0.0;
 		}
@@ -208,14 +208,14 @@ public:
 			J(2, 2) = 0.0;
 		}
 		else{
-			J(2, 0) = 0.0;// -C_v*Deriv_dPGH_dPG(Sg)*Deriv_dPGdSg(Sg);
+			J(2, 0) = -PGH_bar*M_G/R/T_L;// -C_v*Deriv_dPGH_dPG(Sg)*Deriv_dPGdSg(Sg);
 			J(2, 1) = 0.0;
 			J(2, 2) = PGH*M_G/R/T_L/T_L;
 
 		}
-		J(3, 0) = 1.0;// -C_v*Deriv_dPGH_dPG(Sg)*Deriv_dPGdSg(Sg);
+		J(3, 0) = P_sat*(rho_l_std / (rho_l_std + (M_L / M_G)*rho_L_h)) / P_L / P_L;// -C_v*Deriv_dPGH_dPG(Sg)*Deriv_dPGdSg(Sg);
 		J(3, 1) = 0.0;
-		J(3, 2) = 0.0;
+		J(3, 2) = -Deriv_dPsat_dT(T_L)*(rho_l_std / (rho_l_std + (M_L / M_G)*rho_L_h)) / P_L;
 	};
 
 	virtual void calc_Rest_SecVar(ogsChem::LocalVector & vec_unknowns, ogsChem::LocalVector & vec_rest_var)
