@@ -42,6 +42,7 @@ public:
 	  */
 	virtual void calc_Jacobian(ogsChem::LocalVector & vec_unknowns, ogsChem::LocalMatrix & J) = 0;
 	virtual void calc_Jacobian_fd(ogsChem::LocalVector & vec_unknowns, ogsChem::LocalMatrix & J) = 0;
+	virtual void calc_Jacobian_loc_Prior(ogsChem::LocalVector & vec_unknowns, ogsChem::LocalMatrix & J) = 0;
 	/**
 	* calculate REST SECONDARY VARIABLES BASED ON THE SATURATION AND p_l
 	*/

@@ -216,7 +216,11 @@ protected:
 			
  			_LP_EOS->solve(Input, Output);
 			_LP_EOS->calc_Deriv_xx(Input, Output, matSecDer);
-			
+
+
+			//std::cout << matSecDer << std::endl;
+			//_LP_EOS->calc_Deriv_aa(Input, Output, matSecDer);
+			//std::cout << matSecDer << std::endl;
 			S_gp(0) = Output(0);
 			rho_L_h_gp(0) = Output(1);
 			rho_G_h_gp(0) = Output(2);
@@ -228,11 +232,11 @@ protected:
 			PC_gp(0) = pm->getPc_bySat(S_gp(0));
 			dPC_dSg_gp(0) = pm->Deriv_dPCdS(S_gp(0));
 			
-			//P_Gw_gp(0) = P_gp(0, 0) - P_Gh_gp(0);
-			P_Gw_gp(0) = _EOS->getPGW(P_gp(0, 0), PC_gp(0), rho_L_h_gp(0),T_gp(0, 0));
+			P_Gw_gp(0) = P_gp(0, 0) - P_Gh_gp(0);
+			//P_Gw_gp(0) = _EOS->getPGW(P_gp(0, 0), PC_gp(0), rho_L_h_gp(0),T_gp(0, 0));
 			
-			rho_G_w_gp(0) = P_Gw_gp(0)*C_w;//
-			double rho_G_w=P_gp(0, 0)*C_w - M_L*rho_G_h_gp(0) / M_G;//
+			rho_G_w_gp(0) = P_gp(0, 0)*C_w - M_L*rho_G_h_gp(0) / M_G;//P_Gw_gp(0)*C_w;//
+			//double rho_G_w=
 			
 			Xvap_gp(0) = P_Gw_gp(0) / P_gp(0, 0);//MOLAR FRACTION
 			//massfractionXair_gp(0) = _EOS->get_massfraction(1 - Xvap_gp(0));
@@ -242,7 +246,7 @@ protected:
 			//+++++++++++++++++++++++++Calculate the derivatives +++++++++++++++++++++++++++++++++++
 
 			dPGw_dP_gp(0) = 0.0;
-			dPGw_dT_gp(0) = _EOS->Deriv_dPGw_dT(PC_gp(0), T_gp(0, 0));
+			dPGw_dT_gp(0) = _EOS->Deriv_dPGw_dT(PC_gp(0), T_gp(0, 0), rho_L_h_gp(0));
 			
 			dPGh_dP_gp(0) = P_gp(0, 0)*matSecDer(3, 0) + P_Gh_gp(0) / P_gp(0, 0);
 			//double dPGh_dP = P_gp(0, 0)*matSecDer(3, 0) + P_Gh_gp(0) / P_gp(0, 0);
@@ -258,11 +262,11 @@ protected:
 			//double drho_G_hdP = matSecDer(2, 0);
 			drho_G_h_dT_gp(0) = matSecDer(2, 2);
 			/*double drho_G_hdT = matSecDer(2, 2);*/
-			/*drho_G_w_dP_gp(0) = C_w - M_L*drho_G_hdP_gp(0) / M_G;
-			drho_G_w_dT_gp(0) = -M_L*drho_G_h_dT_gp(0) / M_G;*/
+			drho_G_w_dP_gp(0) = C_w - M_L*drho_G_hdP_gp(0) / M_G;
+			drho_G_w_dT_gp(0) = -M_L*drho_G_h_dT_gp(0) / M_G;
 
-			drho_G_w_dP_gp(0) = dPGw_dP_gp(0)*C_w;
-			drho_G_w_dT_gp(0) = dPGw_dT_gp(0)*C_w - P_Gw_gp(0)*C_w / T_gp(0, 0);
+			/*drho_G_w_dP_gp(0) = dPGw_dP_gp(0)*C_w;
+			drho_G_w_dT_gp(0) = dPGw_dT_gp(0)*C_w - P_Gw_gp(0)*C_w / T_gp(0, 0);*/
 
 			dSgdX_gp(0) = matSecDer(0, 1);// _EOS->Deriv_dSgdX(S_gp(0), rho_L_h_gp(0), rho_G_h_gp(0), drho_L_h_dX_gp(0), drho_G_hdX_gp(0));
 			dSgdP_gp(0) = matSecDer(0, 0);// _EOS->Deriv_dSgdP(S_gp(0), rho_L_h_gp(0), rho_G_h_gp(0), drho_L_h_dP_gp(0), drho_G_hdP_gp(0));

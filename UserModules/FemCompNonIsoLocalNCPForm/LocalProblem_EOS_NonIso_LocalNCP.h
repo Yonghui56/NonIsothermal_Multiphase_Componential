@@ -40,6 +40,7 @@ public:
 	  */
 	void solve(ogsChem::LocalVector & Input, ogsChem::LocalVector & Output );
 	void calc_Deriv_xx(ogsChem::LocalVector & INPUT, ogsChem::LocalVector & OUTPUT, MathLib::LocalMatrix & matSecDer);
+	void calc_Deriv_aa(ogsChem::LocalVector & INPUT, ogsChem::LocalVector & OUTPUT, MathLib::LocalMatrix & matSecDer);
 	//void deriv_solve(ogsChem::LocalVector & Input, ogsChem::LocalVector & Output)
 	/**
 	  * return the number of secondary variables
@@ -49,7 +50,7 @@ public:
 	/**
 	  * TODO: describe the parameter
 	  */
-	const double eps = 1.0e-7;
+	const double eps = 1.0e-8;
 
 	/**
 	  * TODO: describe the parameter

@@ -92,32 +92,88 @@ void LocalProblem_EOS_NonIso_LocalNCP::calc_Deriv_xx(ogsChem::LocalVector & INPU
 	//CALCULATE THE DERIVATIVE OF THE SMALL VALUE ON P
 
 	MathLib::LocalVector output_p, output_x, output_T;
+	MathLib::LocalVector output_p1, output_x1, output_T1;
 	MathLib::LocalVector input_p, input_x, input_T;
+	MathLib::LocalVector input_p1, input_x1, input_T1;
 
 	output_p = OUTPUT;
+	output_p1 = OUTPUT;
 	input_p = INPUT;
+	input_p1 = INPUT;
 	input_p(0) = input_p(0) + eps;
 	// directly use the output value as the initial guess of the next calculation
 	solve(input_p, output_p);
 	//store the output value
-
+	input_p1(0) = input_p1(0) - eps;
+	solve(input_p1, output_p1);
 
 	////CALCULATE THE DERIVATIVE OF THE SMALL VALUE ON X
 	output_x = OUTPUT;
+	output_x1 = OUTPUT;
 	input_x = INPUT;
+	input_x1 = INPUT;
 	input_x(1) = input_x(1) + eps;
 	solve(input_x, output_x);
+	input_x1(1) = input_x1(1) - eps;
+	solve(input_x1, output_x1);
 
 	////CALCULATE THE DERIVATIVE OF THE SMALL VALUE ON T
 	output_T = OUTPUT;
+	output_T1 = OUTPUT;
 	input_T = INPUT;
+	input_T1 = INPUT;
 	input_T(2) = input_T(2) + eps;
 	solve(input_T, output_T);
+	input_T1(2) = input_T1(2) - eps;
+	solve(input_T1, output_T1);
 	// here is the derivative operations. 
-	matSecDer.col(0) = (output_p - OUTPUT) / eps;
-	matSecDer.col(1) = (output_x - OUTPUT) / eps;
-	matSecDer.col(2) = (output_T - OUTPUT) / eps;
+	matSecDer.col(0) = (output_p - output_p1) /2/ eps;
+	matSecDer.col(1) = (output_x - output_x1) / 2/eps;
+	matSecDer.col(2) = (output_T - output_T1) /2/ eps;
 	//std::cout << matSecDer << std::endl;
+};
+void LocalProblem_EOS_NonIso_LocalNCP::calc_Deriv_aa(ogsChem::LocalVector & INPUT, ogsChem::LocalVector & OUTPUT, MathLib::LocalMatrix & matSecDer)
+{
+	//CALCULATE THE DERIVATIVE OF THE SMALL VALUE ON P
+	MathLib::LocalMatrix Jac_sec = MathLib::LocalMatrix::Zero(N, N);
+	MathLib::LocalMatrix Jac_prior = MathLib::LocalMatrix::Zero(N, N-1);
+	MathLib::LocalVector output_s, output_rlh, output_rgh,output_pgh,vec_P,vec_X,vec_T;
+	MathLib::LocalVector dSdP = MathLib::LocalVector::Zero(1);
+	_EOS->calc_Jacobian(OUTPUT, Jac_sec);
+	_EOS->calc_Jacobian_loc_Prior(OUTPUT, Jac_prior);
+	output_s = Jac_sec.col(0);
+	output_rlh = Jac_sec.col(1);
+	output_rgh =Jac_sec.col(2);
+	output_pgh = Jac_sec.col(3);
+	vec_P = Jac_prior.col(0);
+	vec_X = Jac_prior.col(1);
+	vec_T = Jac_prior.col(2);
+	dSdP = output_s.inverse()*vec_P;
+	MathLib::LocalVector dSdX = output_s.inverse()*vec_X;
+	MathLib::LocalVector dSdT = output_s.inverse()*vec_T;
+	MathLib::LocalVector dRLHdP = output_rlh.inverse()*vec_P;
+	MathLib::LocalVector dRLHdX = output_rlh.inverse()*vec_X;
+	MathLib::LocalVector dRLHdT = output_rlh.inverse()*vec_T;
+	MathLib::LocalVector dRGHdP = output_rgh.inverse()*vec_P;
+	MathLib::LocalVector dRGHdX = output_rgh.inverse()*vec_X;
+	MathLib::LocalVector dRGHdT = output_rgh.inverse()*vec_T;
+	MathLib::LocalVector dPGHdP = output_pgh.inverse()*vec_P;
+	MathLib::LocalVector dPGHdX = output_pgh.inverse()*vec_X;
+	MathLib::LocalVector dPGHdT = output_pgh.inverse()*vec_T;
+	// here is the derivative operations. 
+	matSecDer(0, 0) = dSdP(0);
+	matSecDer(0, 1) = dSdX(0);
+	matSecDer(0, 2) = dSdT(0);
+	matSecDer(1, 0) = dRLHdP(0);
+	matSecDer(1, 1) = dRLHdX(0);
+	matSecDer(1, 2) = dRLHdT(0);
+	matSecDer(2, 0) = dRGHdP(0);
+	matSecDer(2, 1) = dRGHdX(0);
+	matSecDer(2, 2) = dRGHdT(0);
+	matSecDer(3, 0) = dPGHdP(0);
+	matSecDer(3, 1) = dPGHdX(0);
+	matSecDer(3, 2) = dPGHdT(0);
+    //std::cout << matSecDer << std::endl;
 };
 /**
   * TODO: describe this function
