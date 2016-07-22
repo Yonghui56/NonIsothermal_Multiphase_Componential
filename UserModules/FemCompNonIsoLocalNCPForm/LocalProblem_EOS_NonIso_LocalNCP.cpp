@@ -87,7 +87,17 @@ void LocalProblem_EOS_NonIso_LocalNCP::solve(ogsChem::LocalVector & Input, ogsCh
 
 }
 //void LocalProblem_EOS::der
+void LocalProblem_EOS_NonIso_LocalNCP::calc_Deriv_aa(ogsChem::LocalVector & INPUT, ogsChem::LocalVector & OUTPUT, MathLib::LocalMatrix & matSecDer)
+{
+	//CALCULATE THE DERIVATIVE OF THE SMALL VALUE ON P
+	MathLib::LocalMatrix Jac_sec = MathLib::LocalMatrix::Zero(N, N);
+	MathLib::LocalMatrix Jac_prior = MathLib::LocalMatrix::Zero(N, N );
+	_EOS->calc_Jacobian(OUTPUT, Jac_sec);
+	_EOS->calc_Jacobian_loc_Prior(OUTPUT, Jac_prior);
 
+	matSecDer = Jac_sec.inverse()*Jac_prior;
+	//std::cout << matSecDer << std::endl;
+};
 /**
   * TODO: describe this function
   */

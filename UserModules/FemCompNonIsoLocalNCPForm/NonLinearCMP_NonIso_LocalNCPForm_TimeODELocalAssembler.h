@@ -103,7 +103,7 @@ protected:
 
 		Input = LocalVectorType::Zero(3);
 		Output = LocalVectorType::Zero(3);
-
+		LocalMatrixType matSecDer = LocalMatrixType::Zero(3, 3);
 		S_gp = LocalVectorType::Zero(1);
 		rho_G_h_gp = LocalVectorType::Zero(1);
 		rho_G_w_gp =  LocalVectorType::Zero(1);
@@ -213,7 +213,8 @@ protected:
 
 			_EOS->set_env_condition(Input);
  			_LP_EOS->solve(Input, Output);
-
+			_LP_EOS->calc_Deriv_aa(Input, Output, matSecDer);
+			std::cout << matSecDer << std::endl;
 			S_gp(0) = Output(0);
 			rho_L_h_gp(0) = Output(1);
 			rho_G_h_gp(0) = Output(2);

@@ -39,6 +39,7 @@ public:
 	  * the initial guess will be embedded into the Output vector.
 	  */
 	void solve(ogsChem::LocalVector & Input, ogsChem::LocalVector & Output );
+	void calc_Deriv_aa(ogsChem::LocalVector & INPUT, ogsChem::LocalVector & OUTPUT, MathLib::LocalMatrix & matSecDer);
 	//void deriv_solve(ogsChem::LocalVector & Input, ogsChem::LocalVector & Output)
 	/**
 	  * return the number of secondary variables

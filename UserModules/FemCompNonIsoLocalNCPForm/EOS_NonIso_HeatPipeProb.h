@@ -161,7 +161,46 @@ public:
 		}
 	};
 	
+	virtual void calc_Jacobian_loc_Prior(ogsChem::LocalVector & vec_unknowns, ogsChem::LocalMatrix & J)
+	{
+		//assert(J.cols() == this->get_n() && J.rows() == this->get_n());
 
+		// getting unknowns
+		double Sg = vec_unknowns(0);
+		double rho_L_h = vec_unknowns(1);
+		double rho_G_h = vec_unknowns(2);
+		double P_sat = get_P_sat(T_L);//
+		double PGH = P_L - get_P_sat(T_L);//
+		double F1 = Sg;
+		double G1 = PGH*Hen*M_G - rho_L_h;
+		double F2 = 1 - Sg;
+		double G2 = rho_G_h - PGH*M_G / R / T_L;
+		// evaluate J
+		J.setZero();
+		J(0, 0) = 0.0;//-----dF(1)/dSg
+		J(0, 1) = 1.0;//dRHO_L_H
+		J(0, 2) = 0.0;
+		if (F1 <= G1) {
+			J(1, 0) = 0.0;
+			J(1, 1) = 0.0;
+			J(1, 2) = 0.0;
+		}
+		else{
+			J(1, 0) = Hen*M_G;// -C_v*Deriv_dPGH_dPG(Sg)*Deriv_dPGdSg(Sg);
+			J(1, 1) = 0.0;
+			J(1, 2) = -Deriv_dPsat_dT(T_L)*Hen*M_G;
+		}
+		if (F2 <= G2) {
+			J(2, 0) = 0.0;
+			J(2, 1) = 0.0;
+			J(2, 2) = 0.0;
+		}
+		else{
+			J(2, 0) = -M_G / R / T_L;// -C_v*Deriv_dPGH_dPG(Sg)*Deriv_dPGdSg(Sg);
+			J(2, 1) = 0.0;
+			J(2, 2) =Deriv_dPsat_dT(T_L)*M_G / R / T_L-PGH*M_G / R / T_L / T_L;
+		}
+	};
 
 	virtual void calc_Rest_SecVar(ogsChem::LocalVector & vec_unknowns, ogsChem::LocalVector & vec_rest_var)
 	{
