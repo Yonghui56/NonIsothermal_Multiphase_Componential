@@ -308,6 +308,15 @@ public:
 		return lambda_pm;
 
 	}
+
+
+	/**
+	* OVERALL HEAT CAPACITY
+	*/
+	virtual double Henry_const(double T)//unit [Pa^(-1)]
+	{
+		return (0.8942 + 1.47 * exp(-0.04394*T))* 1e-10;
+	}
 private:
 
 	/**
