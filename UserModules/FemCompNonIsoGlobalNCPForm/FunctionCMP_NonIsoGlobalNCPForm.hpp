@@ -363,43 +363,59 @@ void FunctionCMP_NonIsoGlobalNCPForm<T1, T2>::calc_nodal_eos_sys(double dt = 0.0
 		dPG_wdT_np = _EOS->Deriv_dPgw_dT(input(0), PC_np, input(3));
 		//For minimum function 1
 		//_vec_Res(node_id ) = std::min( input(2), C_h*(input(0) + output(2)) - rho_L_std*M_G*input(1) / M_L );//+ 2 * num_nodes
-		/*
-		_vec_Res(3 * num_nodes + node_id) = std::min(input(2), 1 - (input(1) + (PG_w_np/input(0))));
-		if (input(2) <= 1 - (input(1) + (PG_w_np / input(0)))){//then rho_L^h=C_h*PG
-			//if program comes here indicates coming to one phase zone with only liquid 
-			//Calc each entry of the mass matrix
-			_mat_Jacob.coeffRef(3 * num_nodes + node_id, 4 * node_id + 2) = 1.0;
-		}
-		else {//then 
-			//if program comes here indicates coming to two phase zone 
-			//Calc each entry of the mass matrix
-			_mat_Jacob.coeffRef(node_id + 3 * num_nodes, 4 * node_id) = PG_w_np/pow(input(0),2);
-			_mat_Jacob.coeffRef(node_id + 3 * num_nodes, 4 * node_id + 1) = -1.0;
-			_mat_Jacob.coeffRef(node_id + 3 * num_nodes, 4 * node_id + 2) = -dPG_wdPC_np*dPCdSG_np / input(0);
-			_mat_Jacob.coeffRef(node_id + 3 * num_nodes, 4 * node_id + 3) = -dPG_wdT_np / input(0);
-			
-		}
-		*/
-		
-		_vec_Res(3 * num_nodes + node_id) =  -std::min(1 - input(2), 1 - (input(0)*(1 - input(1)) / PG_w_np));//min{1-SG, 1-(PG*(1-X_G^a)/P_sat)}=0
-		if (1 - input(2) <= 1 - (input(0)*(1 - input(1)) / PG_w_np)){//then rho_L^h=C_h*PG
-			//if program comes here indicates coming to one phase zone with only gas
-			//Calc each entry of the mass matrix
-			_mat_Jacob.coeffRef(node_id + 3 * num_nodes, 4 * node_id) = 0.0;//dPG
-			_mat_Jacob.coeffRef(node_id + 3 * num_nodes, 4 * node_id + 1) = 0.0;//dX_G^a
-			_mat_Jacob.coeffRef(3 * num_nodes + node_id, 4 * node_id + 2) = -1.0;
-			_mat_Jacob.coeffRef(node_id + 3 * num_nodes, 4 * node_id + 3) = 0.0;
-			
-		}
-		else {//then 
-			//if program comes here indicates coming to two phase zone 
-			//Calc each entry of the mass matrix
-			_mat_Jacob.coeffRef(node_id + 3 * num_nodes, 4 * node_id) = -(1 - input(1)) / PG_w_np;//dPG
-			_mat_Jacob.coeffRef(node_id + 3 * num_nodes, 4 * node_id + 1) = input(0) / PG_w_np;//dX_G^a
-			_mat_Jacob.coeffRef(node_id + 3 * num_nodes, 4 * node_id + 2) = input(0)*(1 - input(1))*dPG_wdPC_np*dPCdSG_np / pow(PG_w_np, 2);//dSG
-			_mat_Jacob.coeffRef(node_id + 3 * num_nodes, 4 * node_id + 3) = input(0)*(1 - input(1))*dPG_wdT_np / pow(PG_w_np, 2);//dT
-
-		}
+		this->_PL->setValue(node_id, input(0) - PC_np);
+		this->_PC->setValue(node_id, PC_np);
+		//_vec_Res(3 * num_nodes + node_id) = -std::min(input(2), 1 - (input(1) + (PG_w_np/input(0))));//X_G_air + X_G_vap
+        auto test0 = 1 - (input(1) + (PG_w_np / input(0)));
+        auto test1= -std::min(input(2), 1 - (input(1) + (PG_w_np / input(0))));
+        auto test2= -(2* input(2) - (input(1) + (PG_w_np / input(0))))
+            + std::min({ input(2), 1 - (input(1) + (PG_w_np / input(0))), input(2)-1 })
+            + std::max({ input(2), 1 - (input(1) + (PG_w_np / input(0))), input(2)-1 });
+        auto test3 = -std::max(std::min(input(2), 1 - (input(1) + (PG_w_np / input(0)))),
+            std::min(std::max(input(2), 1 - (input(1) + (PG_w_np / input(0)))), input(2)-1));
+        _vec_Res(3 * num_nodes + node_id)= -(2 * input(2) - (input(1) + (PG_w_np / input(0))))
+            + std::min({ input(2), 1 - (input(1) + (PG_w_np / input(0))), input(2) - 1 })
+            + std::max({ input(2), 1 - (input(1) + (PG_w_np / input(0))), input(2) - 1 });
+        if (input(2) < input(2) - 1) {
+        if(test0<input(2) - 1 && test0>input(2)){
+            _mat_Jacob.coeffRef(node_id + 3 * num_nodes, 4 * node_id) = PG_w_np / pow(input(0), 2);
+            _mat_Jacob.coeffRef(node_id + 3 * num_nodes, 4 * node_id + 1) = -1.0;
+            _mat_Jacob.coeffRef(3 * num_nodes + node_id, 4 * node_id + 2) = -dPG_wdPC_np*dPCdSG_np / input(0);
+            _mat_Jacob.coeffRef(node_id + 3 * num_nodes, 4 * node_id + 3) = -dPG_wdT_np / input(0);
+        }
+        else if (test0 > input(2) - 1) {
+            _mat_Jacob.coeffRef(node_id + 3 * num_nodes, 4 * node_id) = 0.0;
+            _mat_Jacob.coeffRef(node_id + 3 * num_nodes, 4 * node_id + 1) = 0.0;
+            _mat_Jacob.coeffRef(3 * num_nodes + node_id, 4 * node_id + 2) = 1.0;
+            _mat_Jacob.coeffRef(node_id + 3 * num_nodes, 4 * node_id + 3) = 0.0;
+        }
+        else {
+            _mat_Jacob.coeffRef(node_id + 3 * num_nodes, 4 * node_id) = 0.0;
+            _mat_Jacob.coeffRef(node_id + 3 * num_nodes, 4 * node_id + 1) = 0.0;
+            _mat_Jacob.coeffRef(3 * num_nodes + node_id, 4 * node_id + 2) = 1.0;
+            _mat_Jacob.coeffRef(node_id + 3 * num_nodes, 4 * node_id + 3) = 0.0;
+        }
+        }
+        else {
+            if (test0<input(2)&& test0>input(2) - 1) {
+                _mat_Jacob.coeffRef(node_id + 3 * num_nodes, 4 * node_id) = PG_w_np / pow(input(0), 2);
+                _mat_Jacob.coeffRef(node_id + 3 * num_nodes, 4 * node_id + 1) = -1.0;
+                _mat_Jacob.coeffRef(3 * num_nodes + node_id, 4 * node_id + 2) = -dPG_wdPC_np*dPCdSG_np / input(0);
+                _mat_Jacob.coeffRef(node_id + 3 * num_nodes, 4 * node_id + 3) = -dPG_wdT_np / input(0);
+            }
+            else if (test0 > input(2)) {
+                _mat_Jacob.coeffRef(node_id + 3 * num_nodes, 4 * node_id) = 0.0;
+                _mat_Jacob.coeffRef(node_id + 3 * num_nodes, 4 * node_id + 1) = 0.0;
+                _mat_Jacob.coeffRef(3 * num_nodes + node_id, 4 * node_id + 2) = 1.0;
+                _mat_Jacob.coeffRef(node_id + 3 * num_nodes, 4 * node_id + 3) = 0.0;
+            }
+            else {
+                _mat_Jacob.coeffRef(node_id + 3 * num_nodes, 4 * node_id) = 0.0;
+                _mat_Jacob.coeffRef(node_id + 3 * num_nodes, 4 * node_id + 1) = 0.0;
+                _mat_Jacob.coeffRef(3 * num_nodes + node_id, 4 * node_id + 2) = 1.0;
+                _mat_Jacob.coeffRef(node_id + 3 * num_nodes, 4 * node_id + 3) = 0.0;
+            }
+        }
 		
 	}
 	

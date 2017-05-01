@@ -82,15 +82,15 @@ protected:
 		MaterialLib::Compound* component1 = Ogs6FemData::getInstance()->list_compound[0];
 		// get the second (heavy) component - water
 		MaterialLib::Compound* component2 = Ogs6FemData::getInstance()->list_compound[1];
-		MaterialLib::Solid* solid = Ogs6FemData::getInstance()->list_solid[0];
+		MaterialLib::Solid* solid = Ogs6FemData::getInstance()->list_solid[mat_id];
 		const NumLib::TXPosition e_pos(NumLib::TXPosition::Element, e.getID());
 		double geo_area = 1.0;
 		pm->geo_area->eval(e_pos, geo_area);
-		const bool hasGravityEffect =  _problem_coordinates.hasZ();//detect the gravity term based on the mesh structure
+		const bool hasGravityEffect =  _problem_coordinates.hasY();//detect the gravity term based on the mesh structure
 
 		if (hasGravityEffect) {
 			vec_g = LocalVectorType::Zero(_problem_coordinates.getDimension());
-			vec_g[_problem_coordinates.getIndexOfY()] = 9.81;
+			vec_g[_problem_coordinates.getIndexOfZ()] = 9.81;
 		}
 		/*
 		*SECONDARY VARIABLES initialize
@@ -112,6 +112,8 @@ protected:
 		P_G_a_gp = LocalMatrixType::Zero(1, 1);
 		P_G_w_gp = LocalMatrixType::Zero(1, 1);
 		P_vap_gp = LocalMatrixType::Zero(1, 1);
+		X_L_air_gp = LocalVectorType::Zero(1);
+		rho_L_air_gp = LocalVectorType::Zero(1);
 		massfractionX_gp = LocalMatrixType::Zero(1, 1);
 		h_G_gp = LocalMatrixType::Zero(1, 1);
 		dP_gw_dT_gp = LocalMatrixType::Zero(1, 1);
@@ -204,28 +206,24 @@ protected:
 			X_gp = Np*u1.block(n_nodes, 0, n_nodes, 1);//molar fraction of air in gas phase
 			S_gp = Np*u1.block(2*n_nodes, 0, n_nodes, 1);// gas saturation
 			T_gp = Np*u1.tail(n_nodes);
-			
-			/*if (X_gp(0, 0) < 0){
-				X_gp(0, 0) = 0.05;
-				flag = 0.0;
-			}*/
-				
+
 			C_v = 1/ R / T_gp(0, 0);
-			
+
 			PC_gp(0,0) = pm->getPc_bySat(S_gp(0, 0));
+
 			dPC_dSg_gp(0, 0) = pm->Deriv_dPCdS(S_gp(0, 0));// (S_gp(0, 0));
 
 			P_G_w_gp(0,0) = _EOS->get_P_G_w(P_gp(0,0),PC_gp(0, 0), T_gp(0, 0));
-			Xvap_gp(0, 0) = 1 - X_gp(0, 0);// P_G_w_gp(0, 0) / P_gp(0, 0);// GIVE the molar fraction of water vapor in gas phase
+			Xvap_gp(0, 0) =  1 - X_gp(0, 0);//molar fraction of water vapor in the gas phase
+            const double xvap=P_G_w_gp(0, 0) / P_gp(0, 0);// GIVE the molar fraction of water vapor in gas phase
+			
 			P_G_a_gp(0, 0) = P_gp(0, 0)*X_gp(0, 0);// 
+			//double test = P_gp(0, 0) - P_G_a_gp(0, 0) - P_G_w_gp(0, 0);
 			massfractionX_gp(0, 0) = _EOS->get_massfraction(X_gp(0,0)); //(1-Xvap(0,0))indicates the molar fraction of the air in the gas phase 
-			dMassfraction(0, 0) = _EOS->Deriv_massfraction(X_gp(0,0));
-			h_G_gp(0, 0) = (C_pg*(T_gp(0, 0) - 273.15)*massfractionX_gp(0, 0) + (C_pl*(T_gp(0, 0) - 273.15) + delta_h_vap)*(1 - massfractionX_gp(0, 0)));
-			//C_pg = 11.80 * X_gp(0, 0) + 19.96 * (1 - X_gp(0, 0));
+			const double d_massfractionX_d_molX_gas_nonwet = _EOS->Deriv_massfraction(X_gp(0,0));
 			
 			rho_mol_G_gp(0, 0) = P_gp(0, 0)*C_v;
 			rho_mol_L_gp(0, 0) = rho_L_std / M_L;
-
 			rho_mass_G_gp(0, 0) = rho_mol_G_gp(0, 0)*(X_gp(0,0)*M_G + Xvap_gp(0, 0)*M_L);
 			//rho_mass_G_gp(0, 0) = rho_mol_G_gp(0, 0)*X_gp(0, 0)*M_G + P_G_w_gp(0, 0)* M_L*C_v;
 			rho_mass_L_gp(0, 0) = rho_L_std;
@@ -235,10 +233,37 @@ protected:
 			dP_gw_dT_gp(0) = _EOS->Deriv_dPgw_dT(P_gp(0, 0),PC_gp(0, 0), T_gp(0, 0));
 
 			drho_mol_GdT_gp(0) = -P_gp(0, 0)*C_v / T_gp(0,0);
-			//drho_mol_LdT_gp(0) = -(P_gp(0, 0) - PC_gp(0, 0))*C_v / T_gp(0, 0);
+            const double d_rho_mass_G_dPG = C_v*(X_gp(0, 0)*M_G + Xvap_gp(0, 0)*M_L);
+            const double d_rho_mass_G_dx_air_nonwet = rho_mol_G_gp(0, 0)*(M_G - M_L);
+            const double d_rho_mass_G_dT = drho_mol_GdT_gp(0)*(X_gp(0, 0)*M_G + Xvap_gp(0, 0)*M_L);
 
-			Lam_pm_gp(0) = _EOS->get_overall_Heat_Capacity(S_gp(0));
+            //enthalpy and internal energy
+            double const enthalpy_nonwet_air =
+                heat_capacity_dry_air * (T_gp(0, 0) - 273.15) +
+                R * (T_gp(0, 0) - 273.15) / M_G;
 
+            double const d_enthalpy_air_nonwet_d_T =
+                heat_capacity_dry_air + R / M_G;
+
+            double const enthalpy_wet =
+                heat_capacity_water * (T_gp(0, 0) - 273.15);
+            double const enthalpy_nonwet_vapor =
+                heat_capacity_water_vapor * (T_gp(0, 0) - 273.15) +
+                latent_heat_evaporation;
+            double const enthalpy_nonwet =
+                enthalpy_nonwet_air * massfractionX_gp(0, 0) +
+                enthalpy_nonwet_vapor * (1 - massfractionX_gp(0, 0));
+            double const d_enthalpy_nonwet_d_X_gas_nonwet 
+                = (enthalpy_nonwet_air - enthalpy_nonwet_vapor)
+                *d_massfractionX_d_molX_gas_nonwet;
+
+            double const d_enthalpy_nonwet_d_T= 
+                heat_capacity_water * (1 - massfractionX_gp(0, 0)) +
+                d_enthalpy_air_nonwet_d_T * massfractionX_gp(0, 0);
+            double const internal_energy_nonwet =
+                enthalpy_nonwet - P_gp(0, 0) / rho_mass_G_gp(0, 0);
+
+            double const internal_energy_wet = enthalpy_wet;
 			isinf =_finite(dPC_dSg_gp(0, 0));
 			if (isinf == 0)
 			{
@@ -249,25 +274,28 @@ protected:
 				dPC_dSg_gp(0, 0) = dPC_dSg_gp(0, 0);
 			}
 			
-			M(0, 0) = poro*X_gp(0, 0)*S_gp(0, 0)*C_v;//drho_G_adPG
-			M(0, 1) = poro*S_gp(0, 0)*rho_mol_G_gp(0, 0);			
-			M(0, 2) = poro*X_gp(0, 0)*rho_mol_G_gp(0, 0);
-			M(0, 3) = -poro*X_gp(0, 0)*S_gp(0, 0)*P_gp(0, 0)*C_v / T_gp(0, 0);
+            M(0, 0) = poro*X_gp(0, 0)*S_gp(0, 0)*C_v;
+			M(0, 1) = poro*S_gp(0, 0)*rho_mol_G_gp(0, 0);
+            M(0, 2) = poro*X_gp(0, 0)*rho_mol_G_gp(0, 0);
+            M(0, 3) = -poro*X_gp(0, 0)*S_gp(0, 0)*P_gp(0, 0)*C_v / T_gp(0, 0);
 
-			M(1, 0) = poro*S_gp(0, 0)*C_v;
-			M(1, 1) = 0.0;
-			M(1, 2) = poro*(P_gp(0, 0)*C_v - rho_mol_L_gp(0, 0));
-			M(1, 3) = -poro*S_gp(0, 0)*P_gp(0, 0)*C_v / T_gp(0, 0);
+			M(1, 0) = poro*S_gp(0, 0)*C_v*Xvap_gp(0, 0);
+			M(1, 1) = -poro*S_gp(0, 0)*rho_mol_G_gp(0, 0);
+			M(1, 2) = poro*(rho_mol_G_gp(0, 0) * Xvap_gp(0, 0) - rho_mol_L_gp(0, 0));
+			M(1, 3) = -poro*S_gp(0, 0)*P_gp(0, 0)*C_v*Xvap_gp(0, 0) / T_gp(0, 0);
 
-			M(2, 0) = poro*(X_gp(0, 0)*M_G + (1 - X_gp(0, 0))*M_L)*C_v*S_gp(0)*h_G_gp(0, 0) - poro*S_gp(0);//
-			M(2, 1) = poro*rho_mol_G_gp(0, 0)*(M_G - M_L)*S_gp(0)*h_G_gp(0, 0);
-				//+ poro*rho_mass_G_gp(0, 0)*S_gp(0)*dMassfraction(0, 0)*(C_pg*(T_gp(0, 0) - 273.15) - C_pl*(T_gp(0, 0) - 273.15) - delta_h_vap);
-			M(2, 2) = poro*(rho_mass_G_gp(0, 0)*h_G_gp(0, 0) - rho_mass_L_gp(0, 0)*C_pl*(T_gp(0, 0) - 273.15))
-				- poro*P_gp(0, 0);
-			M(2, 3) = (1 - poro)*rho_S_std*C_solid + poro*rho_mass_G_gp(0, 0)*(C_pg*massfractionX_gp(0, 0) + C_pl*(1 - massfractionX_gp(0, 0)))*S_gp(0, 0)
-				+ poro*rho_mass_L_gp(0, 0)*C_pl*(1 - S_gp(0, 0))
-				- poro*(X_gp(0, 0)*M_G + (1 - X_gp(0, 0))*M_L)*rho_mol_G_gp(0, 0)*S_gp(0)*h_G_gp(0, 0) / T_gp(0, 0);
-			
+            M(2, 0) = poro * d_rho_mass_G_dPG * internal_energy_nonwet *S_gp(0, 0)
+                - poro*S_gp(0, 0);
+
+            M(2, 1) = poro*d_rho_mass_G_dx_air_nonwet *internal_energy_nonwet*S_gp(0, 0)
+                + poro*d_enthalpy_nonwet_d_X_gas_nonwet*rho_mass_G_gp(0, 0)*S_gp(0, 0);
+
+            M(2, 2) = poro*(rho_mass_G_gp(0, 0)*internal_energy_nonwet - rho_mass_L_gp(0, 0)*internal_energy_wet);
+
+			M(2, 3) = (1 - poro)*rho_S_std*C_solid +
+                poro * (S_gp(0, 0) * (d_rho_mass_G_dT * enthalpy_nonwet +
+                    rho_mass_G_gp(0, 0) * d_enthalpy_nonwet_d_T) +
+                    (1 - S_gp(0, 0)) * rho_mass_L_gp(0, 0) * heat_capacity_water);
 				
 			//-------------debugging------------------------
 			//std::cout << "M=" << std::endl;
@@ -295,19 +323,28 @@ protected:
 			//+++++++++++++++++++++++++Calculate the vecocity+++++++++++++++++++++++++++++++++++++++
 			vel_G_gp = -lambda_G*(dNp)*u1.head(n_nodes);
 
-			vel_L_gp = -((lambda_L*(dNp)*u1.head(n_nodes)) - lambda_L*dPC_dSg_gp(0, 0)*(dNp)*u1.block(2 * n_nodes, 0, n_nodes, 1));// +lambda_L*(dNp)*PC_node;
+			vel_L_gp = -((lambda_L*(dNp)*u1.head(n_nodes)) 
+                - lambda_L*dPC_dSg_gp(0, 0)*(dNp)*u1.block(2 * n_nodes, 0, n_nodes, 1));// +lambda_L*(dNp)*PC_node;
 			
-			vel_X_gp =  -(dNp)*u1.block(n_nodes, 0, n_nodes, 1);
+			vel_X_gp =  -poro*S_gp(0)*D_G*(dNp)*u1.block(n_nodes, 0, n_nodes, 1);
 			//vel_L_gp = -(lambda_L*(dNp)*u1.head(n_nodes) );//			
 
 			//_function_data->get_vel_G()->setIntegrationPointValue(ele_id, j, vel_G_gp);
 			//_function_data->get_vel_L()->setIntegrationPointValue(ele_id, j, vel_L_gp);
 			//+++++++++++++++++++++++++ End Calculate+++++++++++++++++++++++++++++++++++++++
-			A1(2, 3) = (C_pl*rho_l_std*vel_L_gp(0) + (C_pg*massfractionX_gp(0, 0) + C_pl*(1 - massfractionX_gp(0, 0)))*rho_mass_G_gp(0, 0)*vel_G_gp(0))
-				+ (C_pg*M_G - C_pl*M_L)* poro*S_gp(0, 0)*D_G*rho_mol_G_gp(0, 0)*vel_X_gp(0);// 
+            A1(2, 0) =  vel_G_gp(0)*enthalpy_nonwet*d_rho_mass_G_dPG;
+            A1(2, 1) = rho_mass_G_gp(0, 0)*vel_G_gp(0)*d_enthalpy_nonwet_d_X_gas_nonwet
+                + vel_G_gp(0)*enthalpy_nonwet*d_rho_mass_G_dx_air_nonwet;
+            A1(2, 3) = rho_l_std*vel_L_gp(0)*heat_capacity_water + rho_mass_G_gp(0, 0)*vel_G_gp(0)*d_enthalpy_nonwet_d_T
+                + vel_G_gp(0)*enthalpy_nonwet*d_rho_mass_G_dT;
+                //(C_pl*rho_l_std*vel_L_gp(0) + (C_pg*massfractionX_gp(0, 0) + C_pl*(1 - massfractionX_gp(0, 0)))*rho_mass_G_gp(0, 0)*vel_G_gp(0))
+				//+ (C_pg*M_G - C_pl*M_L)* poro*S_gp(0, 0)*D_G*rho_mol_G_gp(0, 0)*vel_X_gp(0);// 
 			if (n_dim > 1){
-				A2(2, 3) = (C_pl*rho_l_std*vel_L_gp(1) + (C_pg*massfractionX_gp(0, 0) + C_pl*(1 - massfractionX_gp(0, 0)))*rho_mass_G_gp(0, 0)*vel_G_gp(1)) 
-					+ (C_pg*M_G - C_pl*M_L)* poro*S_gp(0, 0)*D_G*rho_mol_G_gp(0, 0)*vel_X_gp(0);//
+                A2(2, 0) = vel_G_gp(1)*enthalpy_nonwet*d_rho_mass_G_dPG;
+                A2(2, 1) = rho_mass_G_gp(0, 0)*vel_G_gp(1)*d_enthalpy_nonwet_d_X_gas_nonwet
+                    + vel_G_gp(1)*enthalpy_nonwet*d_rho_mass_G_dx_air_nonwet;
+				A2(2, 3) = rho_l_std*vel_L_gp(1)*heat_capacity_water + rho_mass_G_gp(0, 0)*vel_G_gp(1)*d_enthalpy_nonwet_d_T
+                    + vel_G_gp(1)*enthalpy_nonwet*d_rho_mass_G_dT;//
 			}
 			for (ii = 0; ii < 3; ii++){
 				for (jj = 0; jj < 4; jj++){
@@ -320,27 +357,28 @@ protected:
 					localK.block(n_nodes*ii, n_nodes*jj, n_nodes, n_nodes) += localAdvection_tmp;
 				}
 			}
+            Lam_pm_gp(0) = _EOS->get_overall_Heat_Conductivity(S_gp(0));
 			//+++++++++++++++++++++++
-			
 			//Calc each entry of the Laplace Matrix
 			D(0, 0) = X_gp(0, 0)*rho_mol_G_gp(0, 0)*lambda_G;
 			D(0, 1) = poro*S_gp(0, 0)*D_G*rho_mol_G_gp(0, 0);//
 			D(0, 2) = 0.0;
 			D(0, 3) = 0.0;
 
-			D(1, 0) = lambda_L*rho_mol_L_gp(0, 0) + lambda_G*rho_mol_G_gp(0, 0);
-			D(1, 1) = 0.0;// (M_L - M_G)*poro*S_gp(0, 0)*D_G*rho_mol_G_gp(0, 0) / M_L;//
+			D(1, 0) = lambda_L*rho_mol_L_gp(0, 0) + lambda_G*rho_mol_G_gp(0, 0)*Xvap_gp(0, 0);
+			D(1, 1) = -poro*S_gp(0, 0)*D_G*rho_mol_G_gp(0, 0);//
 			D(1, 2) = -lambda_L*rho_mol_L_gp(0, 0)*dPC_dSg_gp(0, 0);
 			D(1, 3) = 0.0;
 
-			D(2, 0) = lambda_G*rho_mass_G_gp(0, 0)*h_G_gp(0, 0) + lambda_L*rho_mass_L_gp(0, 0)*C_pl*(T_gp(0, 0) - 273.15);
-			D(2, 1) = (C_pg*(T_gp(0, 0) - 273.15)*M_G - (C_pl*(T_gp(0, 0) - 273.15) + delta_h_vap)*M_L)*poro*S_gp(0, 0)*D_G*rho_mol_G_gp(0, 0);//
-			D(2, 2) = -lambda_L*rho_mass_L_gp(0, 0)*C_pl*(T_gp(0, 0) - 273.15)*dPC_dSg_gp(0, 0);
+			D(2, 0) = lambda_G*rho_mass_G_gp(0, 0)*enthalpy_nonwet
+                + lambda_L*rho_mass_L_gp(0, 0)*enthalpy_wet;
+            D(2, 1) = 0.0;// (enthalpy_nonwet_air*M_G - enthalpy_nonwet_vapor*M_L)*poro*S_gp(0, 0)*D_G*rho_mol_G_gp(0, 0);//
+			D(2, 2) = -lambda_L*rho_mass_L_gp(0, 0)*enthalpy_wet*dPC_dSg_gp(0, 0);
 			D(2, 3) = Lam_pm_gp(0, 0);
 
 			//-------------debugging------------------------
 			//std::cout << "D=" << std::endl;
-			//std::cout << D << std::endl;
+			// std::cout << D << std::endl;
 			//--------------end debugging-------------------
 			//
 			for (ii = 0; ii < 3; ii++){
@@ -356,15 +394,18 @@ protected:
 			//std::cout << localK << std::endl;
 			//--------------end debugging-------------------
 			//----------------assembly the gravity term--------------------------------
-			//H(0) = -rho_L_h_gp(0, 0)*lambda_L*(rho_L_h_gp(0, 0) + rho_L_std) - rho_G_h_gp(0, 0)*rho_G_h_gp(0,0)*lambda_G; //-pow(RHO_G, 2)*lambda_G - pow(RHO_L, 2)*lambda_L;
-			//H(1) = -rho_l_std*lambda_L*(rho_L_h_gp(0, 0) + rho_L_std);
+			
 			//-------------debugging------------------------
 			//std::cout << "H=" << std::endl;
 			//std::cout << H << std::endl;
 			//--------------end debugging-------------------
 			if (hasGravityEffect) {
+                H(0) = -rho_L_air_gp(0, 0)*lambda_L*rho_mass_L_gp(0, 0) - X_gp(0, 0)*rho_mol_G_gp(0, 0)*lambda_G*rho_mass_G_gp(0, 0); //-pow(RHO_G, 2)*lambda_G - pow(RHO_L, 2)*lambda_L;
+			    H(1) = -lambda_L*rho_mol_L_gp(0, 0)*rho_mass_L_gp(0, 0) - lambda_G*rho_mol_G_gp(0, 0)*rho_mass_G_gp(0, 0);
+			    H(2) = -lambda_G*rho_mass_G_gp(0, 0)*h_G_gp(0, 0)*rho_mass_G_gp(0, 0)
+				- lambda_L*rho_mass_L_gp(0, 0)*C_pl*(T_gp(0, 0) - 273.15)*rho_mass_L_gp(0, 0);
 				// F += dNp^T * H* gz				
-				for (int idx = 0; idx < 2; idx++){
+				for (int idx = 0; idx < 3; idx++){
 					tmp(0, 0) = H(idx);
 					localGravity_tmp.setZero();
 					//fe->integrateDWxvec_g(j, tmp, localGravity_tmp, vec_g);
@@ -407,7 +448,8 @@ private:
 	LocalVectorType rho_L_h;
 	LocalVectorType rho_G_h;
 	LocalVectorType dPC_dSg;
-
+	LocalVectorType X_L_air_gp;
+	LocalVectorType rho_L_air_gp;
 	LocalVectorType Input;
 
 	LocalMatrixType P_G_w_gp;
@@ -423,6 +465,7 @@ private:
 	LocalMatrixType rho_mass_L_gp;
 
 	LocalMatrixType PC_gp;
+	LocalMatrixType PL_gp;
 	LocalMatrixType dPC_dSg_gp;
 	LocalMatrixType dP_gw_dT_gp;
 	LocalMatrixType dP_gw_dPC_gp;
@@ -480,10 +523,15 @@ private:
 	double C_v;
 	double C_w;//M_L/RT
 	double C_pg, C_pl;
-	const double rho_l_std = 1000.0;
+    const double heat_capacity_dry_air = 733;
+    const double heat_capacity_water = 4187;
+    const double heat_capacity_water_vapor = 4187;
+    const double heat_capacity_solid = 700;
+	const double rho_l_std = 1000;//kg/mm3 1000.0;
 	const double M_G = 0.02896;
 	const double M_L = 0.018;
 	const double delta_h_vap =  2258000;//J/kg
+    const double latent_heat_evaporation = 2258000;//J/kg
 	//double delta_h_vap;//J/kg
 	double rho_S_std;
 	double C_solid;

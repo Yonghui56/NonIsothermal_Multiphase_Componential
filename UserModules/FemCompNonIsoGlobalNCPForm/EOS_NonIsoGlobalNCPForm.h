@@ -78,119 +78,63 @@ public:
 		double dX2 = ((x_G_a + (1 - x_G_a)*M_L / M_G) - x_G_a*(1 - M_L / M_G)) / pow((x_G_a + (1 - x_G_a)*M_L / M_G), 2);
 		return dX2;
 	}
-
-	virtual double getS_bar(double Sg, double xi=1e-5)
-	{
-		double S_bar = 0.0;
-		
-		S_bar = S_gr + (1 - xi)*(Sg - S_gr) + 0.5*xi*(1 - S_gr - S_lr);
-		return S_bar;
-	}
-	/**
-	*  van Genuchten capillary pressure-saturation Model
-	*/
-	virtual double getPc_vG_Sg(double Sg)
-	{
-		double Pc_vG = 0.0;
-		double S_le = 0.0;
-	    //effective saturation
-		S_le =  (1 - Sg - S_lr) / (1 - S_gr - S_lr);
-		//Pc_vG = P_r*(S_le. ^ (-1 / m) - 1). ^ (1 / n);
-		Pc_vG = P_r*pow(pow(S_le, -1 / m) - 1, 1 / n);
-		return Pc_vG;
-	}
-	/**
-	* regularized van Genuchten capillary pressure-saturation Model
-	*/
-	virtual double getPc_bar_vG_Sg(double Sg, double xi=1e-5)
-	{
-		double Pc_bar_vG = 0.0;
-		double S_bar;
-		S_bar = getS_bar(Sg);
-		Pc_bar_vG = getPc_vG_Sg(S_bar) - getPc_vG_Sg(S_gr + (1 - S_gr - S_lr)*xi / 2);
-		return Pc_bar_vG;
-	}
-	/**
-	* derivative dPCdS based on standard van Genuchten capillary pressure-saturation Model
-	*/
-	virtual double get_dPCdS_vG(double Sg)
-	{
-		double dPcdSg = 0.0;
-		double S_le = (1 - Sg - S_lr) / (1 - S_gr - S_lr);
-		dPcdSg = P_r*(1 / (m*n))*(1 / (1 - S_lr - S_gr))*pow(pow(S_le, (-1 / m)) - 1, (1 / n) - 1)*pow(S_le, (-1 / m)) / S_le;
-		return dPcdSg;
-	}
-	/**
-	* derivative dPCdS based on regularized van Genuchten capillary pressure-saturation Model
-	*/
-	virtual double get_dPCdS_vG_bar(double Sg, double xi=1e-5)
-	{
-		double dPCdS(0.0);
-		double S_bar = 0.0;
-		S_bar = getS_bar(Sg);
-		dPCdS = get_dPCdS_vG(S_bar)*(1 - xi);
-		return dPCdS;
-	}
-
 	/**
 	* Derivation of PC (capillary pressure) in terms of saturation based on van Genuchten model
 	*/
+    virtual double getPcbySg(double Sg)//for waste package case1 n=2.0
+    {
+        double Pc = 0.0;
+        double S_eff = getEffectSat_lbySg(Sg);
+        double p0 = 6.324555320336758e+05;
+        Pc = p0*0.05878*((1.263*(1 - S_eff) - 2.120)*(1 - S_eff) + 1.417) * (1 - S_eff);
+        if (Sg > 1 - S_lr) {
+            double y = p0*0.05878*((1.263*1.0 - 2.120)*1.0 + 1.417)*1.0;
+            double m = p0*0.05878*((3 * 1.263*1.0 - 2 * 2.120)*1.0 + 1.417);// *(1 / (1 - S_lr));
+            return -S_eff*m + y;
+        }
+        else if (Sg < 0.0) {
+            double y = 0.0;
+            double m = p0*0.05878*1.417;// *(1 / (1 - S_lr));
+            return (1 - S_eff)*m + y;
+        }
+        return Pc;
+    }
+    /**
+    * Derivation of PC (capillary pressure) in terms of saturation based on van Genuchten model
+    */
+    virtual double Deriv_dPCdS(double Sg)
+    {
+        double dPcdSg(0.0);
+        double S_eff = getEffectSat_lbySg(Sg);
 
-	virtual double getPcbySg(double Sg)//for waste package case1 n=2.0
-	{
-		double Pc = 0.0;
-		double S_eff = getEffectSat_lbySg(Sg);
-		double p0 = 6.324555320336758e+05;		
-		Pc = p0*0.0588*((1.263*(1 - S_eff) - 2.120)*(1 - S_eff) + 1.417) * (1 - S_eff);
-		if (Sg > 1-S_lr) {
-			double y = p0*0.0588*((1.263*1.0 - 2.120)*1.0 + 1.417)*1.0;
-			double m = p0*0.0588*((3 * 1.263*1.0 - 2 * 2.120)*1.0 + 1.417);// *(1 / (1 - S_lr));
-			return -S_eff*m + y;
-		}
-		else if (Sg < 0.0) {
-			double y = 0.0;
-			double m = p0*0.0588*1.417;// *(1 / (1 - S_lr));
-			return (1 - S_eff)*m + y;
-		}
-		return Pc;
-	}
-	/**
-	* Derivation of PC (capillary pressure) in terms of saturation based on van Genuchten model
-	*/
-	virtual double Deriv_dPCdS(double Sg)
-	{
-		double dPcdSg(0.0);
-		double S_eff = getEffectSat_lbySg(Sg);
-		
-		double p0 = 6.324555320336758e+05;
-		
-		if (Sg > 1.0 - S_lr)
-			S_eff = 0.0;
-		dPcdSg = p0*0.0588*((3 * 1.263*(1 - S_eff) - 2 * 2.120)*(1 - S_eff) + 1.417)*(1 / (1 - S_lr));
-		if (Sg < 0.0){
-			dPcdSg = p0*0.0588*1.417*(1 / (1 - S_lr));
-		}
-		
-		return dPcdSg;
-	}
-	/**
-	* calculate the effective saturation of Liquid phase by Gas saturation
-	*/
-	virtual double getEffectSat_lbySg(double Sg)
-	{
-		double EffectSat_l = 0.0;
-		// this->res_saturation_g->eval(Sg, res_S_g);
+        double p0 = 6.324555320336758e+05;
 
-		/*if (Sg < S_gr)
-			EffectSat_l = (1 - Sg - S_lr) / (1 - S_gr - S_lr);
-		else if (Sg>(1 - S_lr))
-			EffectSat_l = 0.0;
-		else*/
-		EffectSat_l = (1 - Sg - S_lr) / (1 - S_gr - S_lr);
+        if (Sg > 1.0 - S_lr)
+            S_eff = 0.0;
+        dPcdSg = p0*0.05878*((3 * 1.263*(1 - S_eff) - 2 * 2.120)*(1 - S_eff) + 1.417)*(1 / (1 - S_lr));
+        if (Sg < 0.0) {
+            dPcdSg = p0*0.05878*1.417*(1 / (1 - S_lr));
+        }
 
-		return EffectSat_l;
-	}
+        return dPcdSg;
+    }
+    /**
+    * calculate the effective saturation of Liquid phase by Gas saturation
+    */
+    virtual double getEffectSat_lbySg(double Sg)
+    {
+        double EffectSat_l = 0.0;
+        // this->res_saturation_g->eval(Sg, res_S_g);
 
+        /*if (Sg < S_gr)
+        EffectSat_l = (1 - Sg - S_lr) / (1 - S_gr - S_lr);
+        else if (Sg>(1 - S_lr))
+        EffectSat_l = 0.0;
+        else*/
+        EffectSat_l = (1 - Sg - S_lr) / (1 - S_gr - S_lr);
+
+        return EffectSat_l;
+    }
 	virtual double get_RHO_G_W(double P_gw, double T)
 	{
 		double rho_G_w(0.0);
@@ -223,7 +167,7 @@ public:
 	/*
 	*Kelvin equation
 	*/
-	virtual double get_P_G_w(double PG, double PC, double T)
+	virtual double get_P_G_w(double /*PG*/, double PC, double T)
 	{
 		double P_sat(0.0);
 		double P_gw(0.0);
@@ -248,7 +192,6 @@ public:
 
 	virtual double Deriv_dPsat_dT(double PG, double T)
 	{
-		
 		// Here unit of T is Celsius;
 		double dPsat_dT(0.0);
 		double T_0 = 373.15;
@@ -295,9 +238,9 @@ public:
 	}
 
 	/**
-	* OVERALL HEAT CAPACITY
+	* OVERALL HEAT conductivity
 	*/
-	virtual double get_overall_Heat_Capacity(double Sg, double lambda_pm_dry = 0.582, double lambda_pm_wet = 1.14)
+	virtual double get_overall_Heat_Conductivity(double Sg, double lambda_pm_dry = 0.582, double lambda_pm_wet = 1.14)
 	{
 		double lambda_pm(0.0);
 		lambda_pm = lambda_pm_dry + std::pow(1 - Sg, 0.5)*(lambda_pm_wet - lambda_pm_dry);
@@ -308,6 +251,22 @@ public:
 		return lambda_pm;
 
 	}
+
+	/**
+	* Calc henry const
+	*/
+	virtual double Henry_const(double T)//unit [Pa^(-1)]
+	{
+		return (0.8942 + 1.47*exp(-0.04394*T))*(1e-10);
+		//return (0.8942 + 1.47 * exp(-0.04394*T))*1e-10;
+	}
+	/**
+	* Calc derivatives
+	*/
+	virtual double deriv_henry_T(double T)
+	{
+		return (-1.47 * exp(-0.04394*T)*(1e-10)*0.04394);
+	}
 private:
 
 	/**
@@ -315,20 +274,16 @@ private:
       */
 	const double R = 8.314;//J/mol/kg
 	
-	const double Hen = 7.65e-6; //Henry constant
 	//const double P_vapor = 0.0;
 	const double eps = 1e-12;
-	const double rho_l_std = 1000.0;
+	const double rho_l_std = 1000;// 1000.0;
 	const double M_G = 0.02896;
 	const double M_L = 0.018;
 	/**
-	* parameters for van-Genuchten capillary pressure-saturation model
+	* parameters for heatpipe capillary pressure-saturation model
 	*/
 	const double S_gr = 0.0;//residual saturation of the gas phase
 	const double S_lr = 0.15;//residual saturation of the liquid phase
-	const double P_r = 2e+6;//pa
-	const double n = 1.49;
-	const double m = 1 - 1 / n;
 
 	double P_G;
 	

@@ -266,7 +266,7 @@ _problem(problem), _nlin_solution(nlin_solution), _discrete_system(dis), _functi
 			bc1->setup(var->getCurrentOrder());
 			std::vector<size_t> &list_bc_nodes = bc1->getListOfBCNodes();
 			std::vector<double> &list_bc_values = bc1->getListOfBCValues();
-
+			
 			// now loop over this vector
 			for (j = 0; j < list_bc_nodes.size(); j++)
 			{
